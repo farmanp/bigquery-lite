@@ -1,0 +1,141 @@
+services:
+  # BigQuery-Lite Frontend (React + Nginx)
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: bigquery-lite-frontend
+    ports:
+      - "3000:80"
+    depends_on:
+      - backend
+    environment:
+      - NODE_ENV=production
+    networks:
+      - bigquery-net
+    restart: unless-stopped
+
+  # BigQuery-Lite Backend (FastAPI)
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: bigquery-lite-backend
+    ports:
+      - "8001:8001"
+    volumes:
+      - ./data:/app/data
+      - backend_db:/app/db
+    environment:
+      - ENVIRONMENT=docker
+      - CLICKHOUSE_HOST=clickhouse-server
+      - CLICKHOUSE_PORT=8123
+      - CLICKHOUSE_USER=admin
+      - CLICKHOUSE_PASSWORD=password
+    depends_on:
+      - clickhouse-server
+    networks:
+      - bigquery-net
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import requests; requests.get('http://localhost:8001/health')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # ClickHouse Coordinator
+  clickhouse-server:
+    image: clickhouse/clickhouse-server:23.8
+    container_name: clickhouse-coordinator
+    hostname: clickhouse-coordinator
+    ports:
+      - "8123:8123"  # HTTP interface
+      - "9000:9000"  # Native client port
+    environment:
+      - CLICKHOUSE_DB=bigquery_lite
+      - CLICKHOUSE_USER=admin
+      - CLICKHOUSE_PASSWORD=password
+    volumes:
+      - clickhouse_data:/var/lib/clickhouse
+      - ./data:/data
+    networks:
+      - bigquery-net
+    ulimits:
+      nofile:
+        soft: 262144
+        hard: 262144
+    restart: unless-stopped
+
+  # ClickHouse Worker 1
+  clickhouse-worker1:
+    image: clickhouse/clickhouse-server:23.8
+    container_name: clickhouse-worker1
+    hostname: clickhouse-worker1
+    ports:
+      - "8124:8123"
+      - "9001:9000"
+    environment:
+      - CLICKHOUSE_DB=bigquery_lite
+      - CLICKHOUSE_USER=admin
+      - CLICKHOUSE_PASSWORD=password
+    volumes:
+      - clickhouse_worker1_data:/var/lib/clickhouse
+      - ./data:/data
+    networks:
+      - bigquery-net
+    ulimits:
+      nofile:
+        soft: 262144
+        hard: 262144
+    restart: unless-stopped
+
+  # ClickHouse Worker 2
+  clickhouse-worker2:
+    image: clickhouse/clickhouse-server:23.8
+    container_name: clickhouse-worker2
+    hostname: clickhouse-worker2
+    ports:
+      - "8125:8123"
+      - "9002:9000"
+    environment:
+      - CLICKHOUSE_DB=bigquery_lite
+      - CLICKHOUSE_USER=admin
+      - CLICKHOUSE_PASSWORD=password
+    volumes:
+      - clickhouse_worker2_data:/var/lib/clickhouse
+      - ./data:/data
+    networks:
+      - bigquery-net
+    ulimits:
+      nofile:
+        soft: 262144
+        hard: 262144
+    restart: unless-stopped
+
+  # Jupyter Lab (Optional)
+  jupyter:
+    image: jupyter/datascience-notebook:latest
+    container_name: bigquery-lite-jupyter
+    ports:
+      - "8888:8888"
+    environment:
+      - JUPYTER_ENABLE_LAB=yes
+    volumes:
+      - ./notebooks:/home/jovyan/work/notebooks
+      - ./data:/home/jovyan/work/data
+      - ./scripts:/home/jovyan/work/scripts
+    networks:
+      - bigquery-net
+    command: start-notebook.sh --NotebookApp.token='' --NotebookApp.password=''
+    restart: unless-stopped
+
+volumes:
+  clickhouse_data:
+  clickhouse_worker1_data:
+  clickhouse_worker2_data:
+  backend_db:
+
+networks:
+  bigquery-net:
+    driver: bridge

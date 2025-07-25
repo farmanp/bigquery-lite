@@ -1,0 +1,103 @@
+/* Additional App-specific styles */
+
+.app {
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: #f8f9fa;
+}
+
+.main-content {
+  flex: 1;
+  display: flex;
+  overflow: hidden;
+}
+
+.workspace {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  background: white;
+  min-width: 0; /* Allow flex child to shrink */
+}
+
+.query-editor-section {
+  border-bottom: 1px solid #e8eaed;
+  background: white;
+  flex-shrink: 0;
+}
+
+.editor-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 24px;
+  border-bottom: 1px solid #e8eaed;
+  background: #f8f9fa;
+  min-height: 60px;
+}
+
+.editor-controls {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.engine-selector {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.engine-selector label {
+  font-size: 14px;
+  font-weight: 500;
+  color: #5f6368;
+  white-space: nowrap;
+}
+
+.results-section {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  min-height: 0;
+}
+
+/* Responsive design */
+@media (max-width: 1024px) {
+  .editor-header {
+    flex-direction: column;
+    gap: 12px;
+    align-items: stretch;
+  }
+  
+  .editor-controls {
+    justify-content: space-between;
+  }
+}
+
+@media (max-width: 768px) {
+  .main-content {
+    flex-direction: column;
+  }
+  
+  .sidebar {
+    width: 100%;
+    height: auto;
+    max-height: 200px;
+    border-right: none;
+    border-bottom: 1px solid #dadce0;
+  }
+  
+  .editor-controls {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+  }
+  
+  .engine-selector {
+    justify-content: space-between;
+  }
+}

@@ -1,0 +1,16 @@
+{
+  "name": "bigquery-lite",
+  "version": "1.0.0",
+  "description": "A local BigQuery-like analytics environment using **DuckDB** for embedded analytics and **ClickHouse** for distributed OLAP processing. This project simulates BigQuery's execution engine, columnar storage, and distributed query processing capabilities.",
+  "main": "capture-screenshots.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "playwright": "^1.54.1"
+  }
+}
