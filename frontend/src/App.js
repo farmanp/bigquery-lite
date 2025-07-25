@@ -23,10 +23,10 @@ const API_BASE_URL = getApiBaseUrl();
 const generateTabId = () => `tab_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 
 // Helper function to create a new tab
-const createNewTab = (name = null) => ({
+const createNewTab = (name = null, isFirstTab = false) => ({
   id: generateTabId(),
   name: name,
-  queryText: '-- Welcome to BigQuery-Lite!\n-- Try running this sample query:\n\nSELECT COUNT(*) as total_rows FROM nyc_taxi;',
+  queryText: isFirstTab ? '-- Welcome to BigQuery-Lite!\n-- Try running this sample query:\n\nSELECT COUNT(*) as total_rows FROM nyc_taxi;' : '',
   selectedEngine: 'duckdb',
   isExecuting: false,
   currentJob: null,
@@ -38,7 +38,7 @@ const createNewTab = (name = null) => ({
 });
 
 function App() {
-  const [tabs, setTabs] = useState([createNewTab('Untitled query')]);
+  const [tabs, setTabs] = useState([createNewTab('Untitled query', true)]);
   const [activeTabId, setActiveTabId] = useState(null);
   const [jobHistory, setJobHistory] = useState([]);
   const [systemStatus, setSystemStatus] = useState(null);
@@ -296,7 +296,7 @@ function App() {
       
       // Ensure at least one tab remains
       if (filteredTabs.length === 0) {
-        const newTab = createNewTab();
+        const newTab = createNewTab('Untitled query', true);
         setActiveTabId(newTab.id);
         return [newTab];
       }
