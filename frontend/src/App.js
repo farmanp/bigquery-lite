@@ -117,16 +117,64 @@ function App() {
   }, []);
 
   const formatQuery = useCallback(() => {
-    // Simple SQL formatting - you could integrate a proper SQL formatter here
-    const formatted = queryText
-      .replace(/\s+/g, ' ')
-      .replace(/,/g, ',\n    ')
-      .replace(/\bFROM\b/gi, '\nFROM')
-      .replace(/\bWHERE\b/gi, '\nWHERE')
-      .replace(/\bGROUP BY\b/gi, '\nGROUP BY')
-      .replace(/\bORDER BY\b/gi, '\nORDER BY')
-      .replace(/\bHAVING\b/gi, '\nHAVING')
-      .replace(/\bLIMIT\b/gi, '\nLIMIT');
+    // Improved SQL formatting that preserves comments
+    let formatted = queryText;
+    
+    // Split by lines to handle comments properly
+    const lines = formatted.split('\n');
+    const processedLines = [];
+    
+    for (let line of lines) {
+      const trimmedLine = line.trim();
+      
+      // Preserve comment lines as-is
+      if (trimmedLine.startsWith('--')) {
+        processedLines.push(trimmedLine);
+        continue;
+      }
+      
+      // Skip empty lines
+      if (!trimmedLine) {
+        continue;
+      }
+      
+      // Process SQL lines
+      let processedLine = trimmedLine
+        // Normalize whitespace within the line (but preserve structure)
+        .replace(/\s+/g, ' ')
+        // Add proper spacing around operators
+        .replace(/,/g, ', ')
+        .replace(/=/g, ' = ')
+        .replace(/</g, ' < ')
+        .replace(/>/g, ' > ')
+        // Clean up any double spaces created
+        .replace(/\s+/g, ' ');
+      
+      // Add proper line breaks for SQL keywords
+      processedLine = processedLine
+        .replace(/\bFROM\b/gi, '\nFROM')
+        .replace(/\bWHERE\b/gi, '\nWHERE')
+        .replace(/\bGROUP BY\b/gi, '\nGROUP BY')
+        .replace(/\bORDER BY\b/gi, '\nORDER BY')
+        .replace(/\bHAVING\b/gi, '\nHAVING')
+        .replace(/\bLIMIT\b/gi, '\nLIMIT')
+        .replace(/\bJOIN\b/gi, '\nJOIN')
+        .replace(/\bINNER JOIN\b/gi, '\nINNER JOIN')
+        .replace(/\bLEFT JOIN\b/gi, '\nLEFT JOIN')
+        .replace(/\bRIGHT JOIN\b/gi, '\nRIGHT JOIN')
+        .replace(/\bFULL JOIN\b/gi, '\nFULL JOIN')
+        .replace(/\bUNION\b/gi, '\nUNION')
+        .replace(/\bUNION ALL\b/gi, '\nUNION ALL');
+      
+      processedLines.push(processedLine);
+    }
+    
+    // Join lines and clean up extra newlines
+    formatted = processedLines
+      .join('\n')
+      .replace(/\n\s*\n/g, '\n')  // Remove multiple empty lines
+      .replace(/^\n+/, '')        // Remove leading newlines
+      .replace(/\n+$/, '');       // Remove trailing newlines
     
     setQueryText(formatted);
   }, [queryText]);
