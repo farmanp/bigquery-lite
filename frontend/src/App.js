@@ -4,6 +4,7 @@ import SQLEditor from './components/SQLEditor';
 import ResultsPanel from './components/ResultsPanel';
 import Sidebar from './components/Sidebar';
 import Header from './components/Header';
+import QueryTabs from './components/QueryTabs';
 import './App.css';
 
 // Determine API base URL based on environment
@@ -18,17 +19,40 @@ const getApiBaseUrl = () => {
 
 const API_BASE_URL = getApiBaseUrl();
 
+// Helper function to generate unique tab ID
+const generateTabId = () => `tab_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+
+// Helper function to create a new tab
+const createNewTab = (name = null, isFirstTab = false) => ({
+  id: generateTabId(),
+  name: name,
+  queryText: isFirstTab ? '-- Welcome to BigQuery-Lite!\n-- Try running this sample query:\n\nSELECT COUNT(*) as total_rows FROM nyc_taxi;' : '',
+  selectedEngine: 'duckdb',
+  isExecuting: false,
+  currentJob: null,
+  queryResults: null,
+  queryPlan: null,
+  queryError: null,
+  isUnsaved: false,
+  savedQuery: null
+});
+
 function App() {
-  const [queryText, setQueryText] = useState('-- Welcome to BigQuery-Lite!\n-- Try running this sample query:\n\nSELECT COUNT(*) as total_rows FROM nyc_taxi;');
-  const [selectedEngine, setSelectedEngine] = useState('duckdb');
-  const [isExecuting, setIsExecuting] = useState(false);
-  const [currentJob, setCurrentJob] = useState(null);
-  const [queryResults, setQueryResults] = useState(null);
-  const [queryPlan, setQueryPlan] = useState(null);
-  const [queryError, setQueryError] = useState(null);
+  const [tabs, setTabs] = useState([createNewTab('Untitled query', true)]);
+  const [activeTabId, setActiveTabId] = useState(null);
   const [jobHistory, setJobHistory] = useState([]);
   const [systemStatus, setSystemStatus] = useState(null);
   const [activeTab, setActiveTab] = useState('results');
+  
+  // Get current active tab
+  const currentTab = tabs.find(tab => tab.id === activeTabId) || tabs[0];
+  
+  // Initialize activeTabId if tabs exist but no active tab is set
+  useEffect(() => {
+    if (tabs.length > 0 && (!activeTabId || !tabs.find(tab => tab.id === activeTabId))) {
+      setActiveTabId(tabs[0].id);
+    }
+  }, [tabs, activeTabId]);
 
   // Fetch system status periodically
   useEffect(() => {
@@ -49,76 +73,126 @@ function App() {
 
   // Poll for job updates when a job is running
   useEffect(() => {
-    if (!currentJob || currentJob.status === 'completed' || currentJob.status === 'failed') {
+    if (!currentTab?.currentJob || currentTab?.currentJob?.status === 'completed' || currentTab?.currentJob?.status === 'failed') {
       return;
     }
 
     const pollJob = async () => {
       try {
-        const response = await axios.get(`${API_BASE_URL}/jobs/${currentJob.job_id}`);
+        const response = await axios.get(`${API_BASE_URL}/jobs/${currentTab.currentJob.job_id}`);
         const jobData = response.data;
         
-        setCurrentJob(jobData);
+        // Update the current tab with job data
+        setTabs(prevTabs => prevTabs.map(tab => 
+          tab.id === activeTabId 
+            ? { ...tab, currentJob: jobData }
+            : tab
+        ));
         
         if (jobData.status === 'completed') {
           // Fetch results
-          const resultResponse = await axios.get(`${API_BASE_URL}/jobs/${currentJob.job_id}/result`);
+          const resultResponse = await axios.get(`${API_BASE_URL}/jobs/${currentTab.currentJob.job_id}/result`);
           const result = resultResponse.data;
           
-          setQueryResults(result.result);
-          setQueryPlan(result.execution_stats);
-          setIsExecuting(false);
+          // Update tab with results
+          setTabs(prevTabs => prevTabs.map(tab => 
+            tab.id === activeTabId 
+              ? { 
+                  ...tab, 
+                  queryResults: result.result,
+                  queryPlan: result.execution_stats,
+                  isExecuting: false
+                }
+              : tab
+          ));
           
           // Update job history
           setJobHistory(prev => [jobData, ...prev.filter(j => j.job_id !== jobData.job_id)]);
         } else if (jobData.status === 'failed') {
-          setQueryError(jobData.error);
-          setIsExecuting(false);
+          // Update tab with error
+          setTabs(prevTabs => prevTabs.map(tab => 
+            tab.id === activeTabId 
+              ? { 
+                  ...tab, 
+                  queryError: jobData.error,
+                  isExecuting: false
+                }
+              : tab
+          ));
           setJobHistory(prev => [jobData, ...prev.filter(j => j.job_id !== jobData.job_id)]);
         }
       } catch (error) {
         console.error('Failed to poll job status:', error);
-        setIsExecuting(false);
+        setTabs(prevTabs => prevTabs.map(tab => 
+          tab.id === activeTabId 
+            ? { ...tab, isExecuting: false }
+            : tab
+        ));
       }
     };
 
     const interval = setInterval(pollJob, 1000); // Poll every second
     return () => clearInterval(interval);
-  }, [currentJob]);
+  }, [currentTab?.currentJob, activeTabId]);
 
   const executeQuery = useCallback(async () => {
-    if (!queryText.trim() || isExecuting) return;
+    if (!currentTab?.queryText.trim() || currentTab?.isExecuting) return;
 
-    setIsExecuting(true);
-    setQueryResults(null);
-    setQueryPlan(null);
-    setQueryError(null);
+    // Update current tab execution state
+    setTabs(prevTabs => prevTabs.map(tab => 
+      tab.id === activeTabId 
+        ? { 
+            ...tab, 
+            isExecuting: true,
+            queryResults: null,
+            queryPlan: null,
+            queryError: null
+          }
+        : tab
+    ));
     setActiveTab('results');
 
     try {
       const response = await axios.post(`${API_BASE_URL}/queries`, {
-        sql: queryText,
-        engine: selectedEngine,
+        sql: currentTab.queryText,
+        engine: currentTab.selectedEngine,
         priority: 1,
         estimated_slots: 1
       });
 
       const jobData = response.data;
-      setCurrentJob({ job_id: jobData.job_id, status: 'submitted' });
+      setTabs(prevTabs => prevTabs.map(tab => 
+        tab.id === activeTabId 
+          ? { ...tab, currentJob: { job_id: jobData.job_id, status: 'submitted' } }
+          : tab
+      ));
       
     } catch (error) {
-      setQueryError(error.response?.data?.detail || error.message);
-      setIsExecuting(false);
+      setTabs(prevTabs => prevTabs.map(tab => 
+        tab.id === activeTabId 
+          ? { 
+              ...tab, 
+              queryError: error.response?.data?.detail || error.message,
+              isExecuting: false
+            }
+          : tab
+      ));
     }
-  }, [queryText, selectedEngine, isExecuting]);
+  }, [currentTab, activeTabId]);
 
   const loadSampleQuery = useCallback((query) => {
-    setQueryText(query);
-  }, []);
+    setTabs(prevTabs => prevTabs.map(tab => 
+      tab.id === activeTabId 
+        ? { ...tab, queryText: query, isUnsaved: true }
+        : tab
+    ));
+  }, [activeTabId]);
 
   const formatQuery = useCallback(() => {
+    if (!currentTab) return;
+    
     // Improved SQL formatting that preserves comments
-    let formatted = queryText;
+    let formatted = currentTab.queryText;
     
     // Split by lines to handle comments properly
     const lines = formatted.split('\n');
@@ -176,20 +250,99 @@ function App() {
       .replace(/^\n+/, '')        // Remove leading newlines
       .replace(/\n+$/, '');       // Remove trailing newlines
     
-    setQueryText(formatted);
-  }, [queryText]);
+    setTabs(prevTabs => prevTabs.map(tab => 
+      tab.id === activeTabId 
+        ? { ...tab, queryText: formatted, isUnsaved: true }
+        : tab
+    ));
+  }, [currentTab, activeTabId]);
 
   const clearResults = useCallback(() => {
-    setQueryResults(null);
-    setQueryPlan(null);
-    setQueryError(null);
+    setTabs(prevTabs => prevTabs.map(tab => 
+      tab.id === activeTabId 
+        ? { 
+            ...tab, 
+            queryResults: null,
+            queryPlan: null,
+            queryError: null
+          }
+        : tab
+    ));
+  }, [activeTabId]);
+
+  // Tab management functions
+  const handleTabChange = useCallback((tabId) => {
+    setActiveTabId(tabId);
   }, []);
+
+  const handleNewTab = useCallback(() => {
+    const newTab = createNewTab();
+    setTabs(prevTabs => [...prevTabs, newTab]);
+    setActiveTabId(newTab.id);
+  }, []);
+
+  const handleTabClose = useCallback((tabId) => {
+    setTabs(prevTabs => {
+      const filteredTabs = prevTabs.filter(tab => tab.id !== tabId);
+      
+      // If we're closing the active tab, switch to another one
+      if (tabId === activeTabId) {
+        const tabIndex = prevTabs.findIndex(tab => tab.id === tabId);
+        const newActiveTab = filteredTabs[tabIndex] || filteredTabs[tabIndex - 1] || filteredTabs[0];
+        if (newActiveTab) {
+          setActiveTabId(newActiveTab.id);
+        }
+      }
+      
+      // Ensure at least one tab remains
+      if (filteredTabs.length === 0) {
+        const newTab = createNewTab('Untitled query', true);
+        setActiveTabId(newTab.id);
+        return [newTab];
+      }
+      
+      return filteredTabs;
+    });
+  }, [activeTabId]);
+
+  const handleTabSave = useCallback((tabId, name) => {
+    setTabs(prevTabs => prevTabs.map(tab => 
+      tab.id === tabId 
+        ? { 
+            ...tab, 
+            name: name || tab.name,
+            isUnsaved: false, 
+            savedQuery: tab.queryText 
+          }
+        : tab
+    ));
+  }, []);
+
+  const handleQueryTextChange = useCallback((newText) => {
+    setTabs(prevTabs => prevTabs.map(tab => 
+      tab.id === activeTabId 
+        ? { 
+            ...tab, 
+            queryText: newText,
+            isUnsaved: tab.savedQuery !== newText
+          }
+        : tab
+    ));
+  }, [activeTabId]);
+
+  const handleEngineChange = useCallback((engine) => {
+    setTabs(prevTabs => prevTabs.map(tab => 
+      tab.id === activeTabId 
+        ? { ...tab, selectedEngine: engine }
+        : tab
+    ));
+  }, [activeTabId]);
 
   return (
     <div className="app">
       <Header 
         systemStatus={systemStatus}
-        isExecuting={isExecuting}
+        isExecuting={currentTab?.isExecuting}
       />
       
       <div className="main-content">
@@ -200,6 +353,15 @@ function App() {
         />
         
         <div className="workspace">
+          <QueryTabs
+            tabs={tabs}
+            activeTabId={activeTabId}
+            onTabChange={handleTabChange}
+            onTabClose={handleTabClose}
+            onNewTab={handleNewTab}
+            onTabSave={handleTabSave}
+          />
+          
           <div className="query-editor-section">
             <div className="editor-header">
               <div className="editor-controls">
@@ -208,9 +370,9 @@ function App() {
                   <select
                     id="engine-select"
                     className="bq-select"
-                    value={selectedEngine}
-                    onChange={(e) => setSelectedEngine(e.target.value)}
-                    disabled={isExecuting}
+                    value={currentTab?.selectedEngine || 'duckdb'}
+                    onChange={(e) => handleEngineChange(e.target.value)}
+                    disabled={currentTab?.isExecuting}
                   >
                     <option value="duckdb">DuckDB (Interactive)</option>
                     <option value="clickhouse">ClickHouse (Distributed)</option>
@@ -222,7 +384,7 @@ function App() {
                 <button
                   className="bq-button secondary"
                   onClick={formatQuery}
-                  disabled={isExecuting}
+                  disabled={currentTab?.isExecuting}
                 >
                   <span className="material-icons">code</span>
                   Format
@@ -239,9 +401,9 @@ function App() {
                 <button
                   className="bq-button"
                   onClick={executeQuery}
-                  disabled={isExecuting || !queryText.trim()}
+                  disabled={currentTab?.isExecuting || !currentTab?.queryText.trim()}
                 >
-                  {isExecuting ? (
+                  {currentTab?.isExecuting ? (
                     <>
                       <div className="spinner"></div>
                       Running...
@@ -257,19 +419,19 @@ function App() {
             </div>
             
             <SQLEditor
-              value={queryText}
-              onChange={setQueryText}
+              value={currentTab?.queryText || ''}
+              onChange={handleQueryTextChange}
               onExecute={executeQuery}
-              disabled={isExecuting}
+              disabled={currentTab?.isExecuting}
             />
           </div>
           
           <ResultsPanel
-            results={queryResults}
-            queryPlan={queryPlan}
-            error={queryError}
-            isLoading={isExecuting}
-            currentJob={currentJob}
+            results={currentTab?.queryResults}
+            queryPlan={currentTab?.queryPlan}
+            error={currentTab?.queryError}
+            isLoading={currentTab?.isExecuting}
+            currentJob={currentTab?.currentJob}
             activeTab={activeTab}
             onTabChange={setActiveTab}
           />
