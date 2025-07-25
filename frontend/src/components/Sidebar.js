@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 
 const Sidebar = ({ jobHistory, onLoadQuery, systemStatus }) => {
-  const [activeSection, setActiveSection] = useState('datasets');
+  const [activeSection, setActiveSection] = useState('explorer');
+  const [searchQuery, setSearchQuery] = useState('');
 
   const sampleQueries = [
     {
@@ -103,99 +104,113 @@ ORDER BY trip_count DESC;`,
 
   return (
     <div className="sidebar">
-      {/* System Status */}
-      {systemStatus && (
-        <div className="sidebar-section">
-          <h3>System Status</h3>
-          <div style={{ fontSize: '14px', color: '#5f6368' }}>
-            <div style={{ marginBottom: '8px' }}>
-              <strong>Slots:</strong> {systemStatus.available_slots}/{systemStatus.total_slots} available
-            </div>
-            <div style={{ marginBottom: '8px' }}>
-              <strong>Queued:</strong> {systemStatus.queued_jobs} jobs
-            </div>
-            <div style={{ marginBottom: '8px' }}>
-              <strong>Running:</strong> {systemStatus.running_jobs} jobs
-            </div>
-            <div>
-              <strong>Completed:</strong> {systemStatus.completed_jobs} jobs
-            </div>
-          </div>
+      {/* Sidebar Header */}
+      <div className="sidebar-header">
+        <div className="sidebar-title">
+          <span className="material-icons">folder</span>
+          <span>Explorer</span>
         </div>
-      )}
+        <button className="sidebar-action-btn">
+          <span className="material-icons">add</span>
+        </button>
+      </div>
 
-      {/* Navigation */}
-      <div style={{ display: 'flex', borderBottom: '1px solid #e8eaed' }}>
+      {/* Search */}
+      <div className="sidebar-search">
+        <div className="search-container-sidebar">
+          <span className="material-icons search-icon">search</span>
+          <input
+            type="text"
+            placeholder="Search BigQuery resources"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="search-input-sidebar"
+          />
+          <button className="filter-btn">
+            <span className="material-icons">tune</span>
+          </button>
+        </div>
+      </div>
+
+      {/* Navigation Tabs */}
+      <div className="sidebar-tabs">
         <div
-          style={{
-            flex: 1,
-            padding: '12px 16px',
-            cursor: 'pointer',
-            borderBottom: activeSection === 'datasets' ? '2px solid #4285f4' : '2px solid transparent',
-            color: activeSection === 'datasets' ? '#4285f4' : '#5f6368',
-            fontWeight: '500',
-            fontSize: '14px',
-            textAlign: 'center'
-          }}
-          onClick={() => setActiveSection('datasets')}
+          className={`sidebar-tab ${activeSection === 'explorer' ? 'active' : ''}`}
+          onClick={() => setActiveSection('explorer')}
         >
-          Data
+          Explorer
         </div>
         <div
-          style={{
-            flex: 1,
-            padding: '12px 16px',
-            cursor: 'pointer',
-            borderBottom: activeSection === 'samples' ? '2px solid #4285f4' : '2px solid transparent',
-            color: activeSection === 'samples' ? '#4285f4' : '#5f6368',
-            fontWeight: '500',
-            fontSize: '14px',
-            textAlign: 'center'
-          }}
+          className={`sidebar-tab ${activeSection === 'samples' ? 'active' : ''}`}
           onClick={() => setActiveSection('samples')}
         >
           Samples
         </div>
         <div
-          style={{
-            flex: 1,
-            padding: '12px 16px',
-            cursor: 'pointer',
-            borderBottom: activeSection === 'history' ? '2px solid #4285f4' : '2px solid transparent',
-            color: activeSection === 'history' ? '#4285f4' : '#5f6368',
-            fontWeight: '500',
-            fontSize: '14px',
-            textAlign: 'center'
-          }}
+          className={`sidebar-tab ${activeSection === 'history' ? 'active' : ''}`}
           onClick={() => setActiveSection('history')}
         >
           History
         </div>
       </div>
 
-      {/* Datasets Section */}
-      {activeSection === 'datasets' && (
-        <div className="sidebar-section">
-          <h3>Available Datasets</h3>
-          <ul className="dataset-list">
-            {datasets.map((dataset) => (
-              <li key={dataset.name} className="dataset-item">
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <span className="material-icons" style={{ fontSize: '20px', color: '#5f6368' }}>
-                    {dataset.icon}
-                  </span>
-                  <div>
-                    <div style={{ fontWeight: '500', color: '#3c4043' }}>
-                      {dataset.name}
-                    </div>
-                    <div style={{ fontSize: '12px', color: '#5f6368' }}>
-                      {dataset.description}
-                    </div>
+      {/* Explorer Section */}
+      {activeSection === 'explorer' && (
+        <div className="sidebar-content">
+          {/* Project Section */}
+          <div className="explorer-section">
+            <div className="explorer-item">
+              <div className="explorer-item-header">
+                <span className="material-icons expand-icon">expand_more</span>
+                <span className="material-icons item-icon">cloud</span>
+                <span className="item-text">bigquery-lite-project</span>
+              </div>
+            </div>
+            
+            {/* Datasets */}
+            <div className="explorer-subsection">
+              {datasets.map((dataset) => (
+                <div key={dataset.name} className="explorer-item nested">
+                  <div className="explorer-item-header">
+                    <span className="material-icons expand-icon">expand_more</span>
+                    <span className="material-icons item-icon">{dataset.icon}</span>
+                    <span className="item-text">{dataset.name}</span>
+                    <button className="item-action">
+                      <span className="material-icons">more_vert</span>
+                    </button>
+                  </div>
+                  <div className="item-description">{dataset.description}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* System Status */}
+          {systemStatus && (
+            <div className="explorer-section">
+              <div className="status-section">
+                <h4>System Status</h4>
+                <div className="status-grid">
+                  <div className="status-item">
+                    <span className="status-label">Slots</span>
+                    <span className="status-value">{systemStatus.available_slots}/{systemStatus.total_slots}</span>
+                  </div>
+                  <div className="status-item">
+                    <span className="status-label">Queued</span>
+                    <span className="status-value">{systemStatus.queued_jobs}</span>
+                  </div>
+                  <div className="status-item">
+                    <span className="status-label">Running</span>
+                    <span className="status-value">{systemStatus.running_jobs}</span>
+                  </div>
+                  <div className="status-item">
+                    <span className="status-label">Completed</span>
+                    <span className="status-value">{systemStatus.completed_jobs}</span>
                   </div>
                 </div>
-              </li>
-            ))}
-          </ul>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
