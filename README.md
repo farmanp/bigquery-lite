@@ -4,6 +4,8 @@ A powerful local BigQuery-like analytics environment with a modern web interface
 
 ![Main Interface](screenshots/01-main-interface.png)
 
+> **📖 [Complete Documentation](docs/README.md)** | **🚀 [Quick Start](docs/getting-started/installation.md)** | **💻 [CLI Guide](docs/user-guide/cli-tool.md)** | **📚 [API Docs](docs/api/rest-api.md)**
+
 ## ✨ What is BigQuery-Lite?
 
 BigQuery-Lite brings Google BigQuery's powerful analytics capabilities to your local environment. It features:
@@ -562,4 +564,21 @@ Your BigQuery-Lite environment is ready!
 
 **Happy Analytics!** 🎉
 
-For questions, issues, or feature requests, please [open an issue](https://github.com/your-username/bigquery-lite/issues) on GitHub.
+## 📖 Documentation
+
+This README provides a quick overview. For comprehensive documentation, visit the **[docs/](docs/README.md)** directory:
+
+### Quick Links
+- **[Installation & Setup](docs/getting-started/installation.md)** - Get started in 5 minutes
+- **[Sample Queries](docs/getting-started/sample-queries.md)** - Example queries to try
+- **[CLI Tool Guide](docs/user-guide/cli-tool.md)** - Command-line interface
+- **[API Reference](docs/api/rest-api.md)** - Complete API documentation
+- **[Architecture Overview](docs/architecture/overview.md)** - System design and components
+- **[Docker Deployment](docs/deployment/docker.md)** - Production deployment
+- **[Troubleshooting](docs/advanced/troubleshooting.md)** - Common issues and solutions
+
+### Contributing
+- **[Development Guide](docs/contributing/development.md)** - Setup development environment
+- **[Contributing Guidelines](docs/contributing/contributing.md)** - How to contribute
+
+For questions, issues, or feature requests, please [open an issue](https://github.com/farmanp/bigquery-lite/issues) on GitHub.
