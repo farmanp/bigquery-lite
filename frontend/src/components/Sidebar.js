@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
+import SchemaBrowser from './SchemaBrowser';
+import SchemaUpload from './SchemaUpload';
 
-const Sidebar = ({ jobHistory, onLoadQuery, systemStatus }) => {
+const Sidebar = ({ jobHistory, onLoadQuery, systemStatus, apiBaseUrl, onCreateTable, onViewSQL, onSchemaUploaded }) => {
   const [activeSection, setActiveSection] = useState('explorer');
   const [searchQuery, setSearchQuery] = useState('');
 
@@ -141,6 +143,12 @@ ORDER BY trip_count DESC;`,
           Explorer
         </div>
         <div
+          className={`sidebar-tab ${activeSection === 'schemas' ? 'active' : ''}`}
+          onClick={() => setActiveSection('schemas')}
+        >
+          Schemas
+        </div>
+        <div
           className={`sidebar-tab ${activeSection === 'samples' ? 'active' : ''}`}
           onClick={() => setActiveSection('samples')}
         >
@@ -211,6 +219,23 @@ ORDER BY trip_count DESC;`,
               </div>
             </div>
           )}
+        </div>
+      )}
+
+      {/* Schemas Section */}
+      {activeSection === 'schemas' && (
+        <div className="sidebar-content" style={{ padding: '16px', display: 'flex', flexDirection: 'column', gap: '24px' }}>
+          <SchemaUpload 
+            apiBaseUrl={apiBaseUrl}
+            onSchemaUploaded={onSchemaUploaded}
+          />
+          <div style={{ borderTop: '1px solid #e8eaed', paddingTop: '24px' }}>
+            <SchemaBrowser 
+              apiBaseUrl={apiBaseUrl}
+              onCreateTable={onCreateTable}
+              onViewSQL={onViewSQL}
+            />
+          </div>
         </div>
       )}
 

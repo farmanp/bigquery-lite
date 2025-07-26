@@ -5,6 +5,8 @@ import ResultsPanel from './components/ResultsPanel';
 import Sidebar from './components/Sidebar';
 import Header from './components/Header';
 import QueryTabs from './components/QueryTabs';
+import TableCreation from './components/TableCreation';
+import SQLViewer from './components/SQLViewer';
 import './App.css';
 
 // Determine API base URL based on environment
@@ -43,6 +45,12 @@ function App() {
   const [jobHistory, setJobHistory] = useState([]);
   const [systemStatus, setSystemStatus] = useState(null);
   const [activeTab, setActiveTab] = useState('results');
+  
+  // Schema management state
+  const [showTableCreation, setShowTableCreation] = useState(false);
+  const [showSQLViewer, setShowSQLViewer] = useState(false);
+  const [selectedSchema, setSelectedSchema] = useState(null);
+  const [selectedEngine, setSelectedEngine] = useState('duckdb');
   
   // Get current active tab
   const currentTab = tabs.find(tab => tab.id === activeTabId) || tabs[0];
@@ -338,6 +346,46 @@ function App() {
     ));
   }, [activeTabId]);
 
+  // Schema management handlers
+  const handleCreateTable = useCallback((schemaName, engine) => {
+    setSelectedSchema(schemaName);
+    setSelectedEngine(engine);
+    setShowTableCreation(true);
+  }, []);
+
+  const handleViewSQL = useCallback((schemaName, engine) => {
+    setSelectedSchema(schemaName);
+    setSelectedEngine(engine);
+    setShowSQLViewer(true);
+  }, []);
+
+  const handleSchemaUploaded = useCallback((schema) => {
+    // Could refresh the schema browser or show a notification
+    console.log('Schema uploaded:', schema);
+  }, []);
+
+  const handleTableCreated = useCallback((tableInfo) => {
+    console.log('Table created:', tableInfo);
+    setShowTableCreation(false);
+  }, []);
+
+  const handleExecuteSQL = useCallback((sql, engine) => {
+    // Add SQL to current tab and execute
+    setTabs(prevTabs => prevTabs.map(tab => 
+      tab.id === activeTabId 
+        ? { 
+            ...tab, 
+            queryText: sql, 
+            selectedEngine: engine,
+            isUnsaved: true 
+          }
+        : tab
+    ));
+    setShowSQLViewer(false);
+    // Execute after a brief delay to allow state to update
+    setTimeout(() => executeQuery(), 100);
+  }, [activeTabId, executeQuery]);
+
   return (
     <div className="app">
       <Header 
@@ -350,6 +398,10 @@ function App() {
           jobHistory={jobHistory}
           onLoadQuery={loadSampleQuery}
           systemStatus={systemStatus}
+          apiBaseUrl={API_BASE_URL}
+          onCreateTable={handleCreateTable}
+          onViewSQL={handleViewSQL}
+          onSchemaUploaded={handleSchemaUploaded}
         />
         
         <div className="workspace">
@@ -437,6 +489,26 @@ function App() {
           />
         </div>
       </div>
+
+      {/* Schema Management Modals */}
+      {showTableCreation && (
+        <TableCreation
+          apiBaseUrl={API_BASE_URL}
+          schemaName={selectedSchema}
+          onTableCreated={handleTableCreated}
+          onClose={() => setShowTableCreation(false)}
+        />
+      )}
+
+      {showSQLViewer && (
+        <SQLViewer
+          apiBaseUrl={API_BASE_URL}
+          schemaName={selectedSchema}
+          engine={selectedEngine}
+          onClose={() => setShowSQLViewer(false)}
+          onExecuteSQL={handleExecuteSQL}
+        />
+      )}
     </div>
   );
 }
