@@ -54,9 +54,7 @@ const QueryTabs = ({
                 <span className="tab-title">
                   {tab.name || 'Untitled query'}
                   {tab.isUnsaved && <span className="unsaved-indicator">*</span>}
-                </span>
-                
-                <div className="tab-actions">
+                </span><div className="tab-actions">
                   {tab.isUnsaved && (
                     <button
                       className="tab-action-btn save-btn"
@@ -72,7 +70,7 @@ const QueryTabs = ({
                     onClick={(e) => handleCloseClick(tab.id, e)}
                     title="Close tab"
                   >
-                    <span className="material-icons">close</span>
+                    ❌
                   </button>
                 </div>
               </div>

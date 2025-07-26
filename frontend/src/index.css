@@ -1,6 +1,4 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+/* Tailwind disabled for now to fix build issues */
 
 /* BigQuery-like Global Styles */
 
