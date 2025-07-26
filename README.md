@@ -564,6 +564,42 @@ Your BigQuery-Lite environment is ready!
 
 **Happy Analytics!** 🎉
 
+## 🧪 Onboarding Tutorial
+
+New to BigQuery-Lite? Take our interactive tutorial to learn how to use the web interface!
+
+**📖 [Complete Onboarding Guide](docs/onboarding.md)** - Step-by-step tutorial with screenshots
+
+### Run the Interactive Demo
+
+Experience the full onboarding flow with automated Playwright tests:
+
+```bash
+# Install Playwright
+npx playwright install
+
+# Run the onboarding tour (generates screenshots)
+npx playwright test playwright/onboard.spec.ts
+
+# View the generated screenshots
+open docs/screenshots/
+```
+
+The automated test will:
+- Launch the local dev server
+- Walk through uploading a `.proto` schema
+- Execute sample queries
+- Capture screenshots of each step
+- Generate a complete visual walkthrough
+
+**Perfect for:**
+- New team members learning the interface
+- Demonstrating BigQuery-Lite capabilities
+- Creating documentation and training materials
+- Validating UI functionality
+
+---
+
 ## 📖 Documentation
 
 This README provides a quick overview. For comprehensive documentation, visit the **[docs/](docs/README.md)** directory:

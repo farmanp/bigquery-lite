@@ -10,7 +10,8 @@
   "author": "",
   "license": "ISC",
   "type": "commonjs",
-  "dependencies": {
+  "devDependencies": {
+    "@playwright/test": "^1.54.1",
     "playwright": "^1.54.1"
   },
   "repository": {
