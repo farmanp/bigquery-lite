@@ -1,0 +1,41 @@
+syntax = "proto3";
+
+package events;
+
+// Sample protobuf schema for testing BigQuery-Lite integration
+message UserEvent {
+  // Basic event information
+  int64 event_id = 1;
+  string user_id = 2;
+  string event_type = 3;
+  int64 timestamp = 4;
+  
+  // User profile information (nested record)
+  UserProfile user_profile = 5;
+  
+  // Event metadata
+  repeated string tags = 6;
+  map<string, string> properties = 7;
+  bool is_test_event = 8;
+}
+
+message UserProfile {
+  string name = 1;
+  string email = 2;
+  int32 age = 3;
+  Address address = 4;
+  repeated string interests = 5;
+}
+
+message Address {
+  string street = 1;
+  string city = 2;
+  string state = 3;
+  string zip_code = 4;
+  Coordinates coordinates = 5;
+}
+
+message Coordinates {
+  double latitude = 1;
+  double longitude = 2;
+}
