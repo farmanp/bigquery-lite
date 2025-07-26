@@ -35,6 +35,9 @@ class DuckDBRunner:
             # Set memory limit
             self.connection.execute("PRAGMA memory_limit='2GB'")
             
+            # Create bigquery_lite schema if it doesn't exist
+            self.connection.execute("CREATE SCHEMA IF NOT EXISTS bigquery_lite")
+            
             # Load NYC taxi data if available
             data_path = "../data/nyc_taxi.parquet"
             if os.path.exists(data_path):

@@ -171,7 +171,7 @@ def create_table(
             for engine, engine_result in result["results"].items():
                 status = "✅ Success" if engine_result["success"] else "❌ Failed"
                 exec_time = f"{engine_result.get('execution_time', 0):.3f}s"
-                error = engine_result.get("error", "")
+                error = engine_result.get("error") or ""
                 table_display.add_row(engine, status, exec_time, error[:50])
             
             console.print(table_display)
