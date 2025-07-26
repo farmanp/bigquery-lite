@@ -96,13 +96,86 @@ const ResultsTable = ({ results }) => {
 
   if (columns.length === 0) {
     return (
-      <div style={{ padding: '40px', textAlign: 'center', color: '#5f6368' }}>
+      <div style={{ padding: '32px 16px', textAlign: 'center', color: '#5f6368' }}>
         <span className="material-icons" style={{ fontSize: '48px', marginBottom: '16px', display: 'block' }}>
           inbox
         </span>
         <div>No data to display</div>
         <div style={{ fontSize: '14px', marginTop: '8px' }}>
           The query returned no results
+        </div>
+      </div>
+    );
+  }
+
+  // Check if this is a single-value result (1 row, 1 column)
+  const isSingleValue = rows.length === 1 && columns.length === 1;
+  
+  if (isSingleValue) {
+    const column = columns[0];
+    const value = rows[0][column.key];
+    const formattedValue = formatCellValue(value, column.type);
+    
+    return (
+      <div className="results-table-container">
+        <div style={{
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          minHeight: '200px',
+          padding: '32px',
+          textAlign: 'center'
+        }}>
+          {/* Column header */}
+          <div style={{
+            fontSize: '14px',
+            fontWeight: '500',
+            color: '#5f6368',
+            marginBottom: '16px',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '6px'
+          }}>
+            <span className="material-icons" style={{ 
+              fontSize: '18px', 
+              color: '#9aa0a6' 
+            }}>
+              {column.type === 'number' ? 'tag' : 
+               column.type === 'date' ? 'schedule' : 'text_fields'}
+            </span>
+            {column.header}
+          </div>
+          
+          {/* Value card */}
+          <div style={{
+            background: '#f8f9fa',
+            border: '1px solid #e8eaed',
+            borderRadius: '8px',
+            padding: '24px 32px',
+            minWidth: '200px',
+            boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
+          }}>
+            <div style={{
+              fontSize: column.type === 'number' ? '32px' : '24px',
+              fontWeight: column.type === 'number' ? '600' : '500',
+              color: '#1a73e8',
+              fontFamily: column.type === 'number' ? 'inherit' : 
+                          column.type === 'date' ? 'monospace' : 'inherit',
+              lineHeight: '1.2'
+            }}>
+              {formattedValue}
+            </div>
+          </div>
+          
+          {/* Subtle metadata */}
+          <div style={{
+            fontSize: '12px',
+            color: '#9aa0a6',
+            marginTop: '16px'
+          }}>
+            Single result
+          </div>
         </div>
       </div>
     );

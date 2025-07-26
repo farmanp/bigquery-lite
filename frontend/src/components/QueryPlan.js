@@ -30,7 +30,7 @@ const QueryPlan = ({ plan }) => {
   };
 
   return (
-    <div style={{ padding: '16px' }}>
+    <div className="query-plan-container" style={{ padding: '16px', height: '100%', overflow: 'auto' }}>
       {/* Execution Summary */}
       <div style={{ 
         background: '#f8f9fa', 

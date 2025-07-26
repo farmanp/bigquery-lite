@@ -12,5 +12,13 @@
   "type": "commonjs",
   "dependencies": {
     "playwright": "^1.54.1"
-  }
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/farmanp/bigquery-lite.git"
+  },
+  "bugs": {
+    "url": "https://github.com/farmanp/bigquery-lite/issues"
+  },
+  "homepage": "https://github.com/farmanp/bigquery-lite#readme"
 }

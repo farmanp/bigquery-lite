@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
 
 const SQLViewer = ({ apiBaseUrl, schemaName, engine, onClose, onExecuteSQL }) => {
@@ -7,11 +7,7 @@ const SQLViewer = ({ apiBaseUrl, schemaName, engine, onClose, onExecuteSQL }) =>
   const [error, setError] = useState(null);
   const [copied, setCopied] = useState(false);
 
-  useEffect(() => {
-    fetchSQL();
-  }, [schemaName, engine]);
-
-  const fetchSQL = async () => {
+  const fetchSQL = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
@@ -26,7 +22,11 @@ const SQLViewer = ({ apiBaseUrl, schemaName, engine, onClose, onExecuteSQL }) =>
     } finally {
       setLoading(false);
     }
-  };
+  }, [apiBaseUrl, schemaName, engine]);
+
+  useEffect(() => {
+    fetchSQL();
+  }, [fetchSQL]);
 
   const handleCopySQL = async () => {
     try {

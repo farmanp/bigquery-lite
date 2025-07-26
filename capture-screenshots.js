@@ -1,175 +1,145 @@
 const { chromium } = require('playwright');
-const path = require('path');
-const fs = require('fs');
 
 async function captureScreenshots() {
-  // Create screenshots directory
-  const screenshotsDir = path.join(__dirname, 'screenshots');
-  if (!fs.existsSync(screenshotsDir)) {
-    fs.mkdirSync(screenshotsDir);
-  }
-
-  const browser = await chromium.launch({ headless: true });
-  const context = await browser.newContext({
-    viewport: { width: 1400, height: 1000 }
-  });
-  const page = await context.newPage();
-
+  const browser = await chromium.launch({ headless: false });
+  const page = await browser.newPage();
+  
   try {
-    console.log('🔄 Navigating to BigQuery-Lite...');
+    console.log('Navigating to BigQuery Lite...');
+    await page.goto('http://localhost:3000');
     
-    // Navigate to the application
-    await page.goto('http://localhost:3000', { 
-      waitUntil: 'networkidle',
-      timeout: 30000 
-    });
-
-    // Wait for the app to load
-    await page.waitForSelector('.app', { timeout: 10000 });
+    // Wait for the page to load
+    await page.waitForSelector('.results-section', { timeout: 10000 });
     
-    console.log('📸 Capturing main interface...');
-    
-    // 1. Capture main interface
+    // Take initial screenshot
+    console.log('Taking initial screenshot...');
     await page.screenshot({ 
-      path: path.join(screenshotsDir, '01-main-interface.png'),
-      fullPage: false
+      path: 'initial-state.png',
+      fullPage: true 
     });
-
-    // 2. Capture SQL editor with sample query
-    console.log('📸 Capturing SQL editor...');
     
-    // Clear the editor and add a sample query
-    const editor = await page.locator('.monaco-editor');
-    await editor.click();
-    await page.keyboard.down('Control');
-    await page.keyboard.press('a');
-    await page.keyboard.up('Control');
+    // Try to run a query
+    console.log('Attempting to run query...');
+    try {
+      // Try different selectors for the editor
+      const editorSelectors = ['.monaco-editor textarea', '.query-editor', 'textarea', '[contenteditable="true"]'];
+      let editorFound = false;
+      
+      for (const selector of editorSelectors) {
+        try {
+          await page.click(selector, { timeout: 2000 });
+          await page.keyboard.type('SELECT COUNT(*) as total_rows FROM nyc_taxi;');
+          editorFound = true;
+          console.log(`Editor found with selector: ${selector}`);
+          break;
+        } catch (e) {
+          console.log(`Editor not found with selector: ${selector}`);
+        }
+      }
+      
+      if (!editorFound) {
+        console.log('Could not find editor, continuing anyway...');
+      }
+      
+      // Try different selectors for the run button
+      const buttonSelectors = ['button:has-text("Run Query")', '.bq-button', 'button[type="submit"]', 'button:contains("Run")'];
+      let buttonFound = false;
+      
+      for (const selector of buttonSelectors) {
+        try {
+          await page.click(selector, { timeout: 2000 });
+          buttonFound = true;
+          console.log(`Run button found with selector: ${selector}`);
+          break;
+        } catch (e) {
+          console.log(`Run button not found with selector: ${selector}`);
+        }
+      }
+      
+      if (buttonFound) {
+        // Wait for results or timeout
+        try {
+          await page.waitForSelector('.bq-table, .results-table-container table, table', { timeout: 10000 });
+          console.log('Results appeared!');
+        } catch (e) {
+          console.log('No results appeared, continuing anyway...');
+        }
+      }
+    } catch (e) {
+      console.log('Query execution failed, continuing with current state...');
+    }
     
-    const sampleQuery = `-- BigQuery-Lite Analytics Demo
-SELECT 
-    payment_type,
-    COUNT(*) as trip_count,
-    AVG(fare_amount) as avg_fare,
-    SUM(total_amount) as total_revenue
-FROM nyc_taxi 
-WHERE fare_amount > 0 
-GROUP BY payment_type 
-ORDER BY trip_count DESC;`;
-    
-    await page.keyboard.type(sampleQuery);
-    await page.waitForTimeout(1000);
-    
+    // Take screenshot of Results tab
+    console.log('Taking Results tab screenshot...');
     await page.screenshot({ 
-      path: path.join(screenshotsDir, '02-sql-editor.png'),
-      fullPage: false
+      path: 'results-tab.png',
+      fullPage: true 
     });
-
-    // 3. Execute query with DuckDB
-    console.log('📸 Executing DuckDB query...');
     
-    // Make sure DuckDB is selected
-    const engineSelector = page.locator('select').first();
-    await engineSelector.selectOption('duckdb');
-    
-    // Execute the query
-    const runButton = page.locator('button:has-text("Run Query")');
-    await runButton.click();
-    
-    // Wait for results
-    await page.waitForSelector('.results-table-container', { timeout: 15000 });
-    await page.waitForTimeout(2000);
-    
-    await page.screenshot({ 
-      path: path.join(screenshotsDir, '03-duckdb-results.png'),
-      fullPage: false
-    });
-
-    // 4. Switch to ClickHouse and run the same query
-    console.log('📸 Executing ClickHouse query...');
-    
-    await engineSelector.selectOption('clickhouse');
-    await page.waitForTimeout(500);
-    
-    await runButton.click();
-    
-    // Wait for ClickHouse results
-    await page.waitForTimeout(5000);
-    
-    await page.screenshot({ 
-      path: path.join(screenshotsDir, '04-clickhouse-results.png'),
-      fullPage: false
-    });
-
-    // 5. Capture query plan view
-    console.log('📸 Capturing query plan...');
-    
-    // Switch to query plan tab if available
-    const queryPlanTab = page.locator('button:has-text("Query Plan")');
-    if (await queryPlanTab.count() > 0) {
-      await queryPlanTab.click();
+    // Click on Execution Details tab
+    console.log('Switching to Execution Details tab...');
+    const executionTab = page.locator('text=Execution Details');
+    if (await executionTab.count() > 0) {
+      await executionTab.click();
       await page.waitForTimeout(1000);
       
+      // Take screenshot of Execution Details tab
+      console.log('Taking Execution Details tab screenshot...');
       await page.screenshot({ 
-        path: path.join(screenshotsDir, '05-query-plan.png'),
-        fullPage: false
+        path: 'execution-details-tab.png',
+        fullPage: true 
       });
     }
-
-    // 6. Capture job history
-    console.log('📸 Capturing job history...');
     
-    const historyTab = page.locator('button:has-text("Job History")');
-    if (await historyTab.count() > 0) {
-      await historyTab.click();
-      await page.waitForTimeout(1000);
-      
-      await page.screenshot({ 
-        path: path.join(screenshotsDir, '06-job-history.png'),
-        fullPage: false
+    // Get computed styles for debugging
+    console.log('Getting computed styles...');
+    const resultsInfo = await page.locator('.results-info').first();
+    const tabContent = await page.locator('.tab-content').first();
+    const resultsTable = await page.locator('.results-table-container').first();
+    
+    if (await resultsInfo.count() > 0) {
+      const resultsInfoStyles = await resultsInfo.evaluate(el => {
+        const styles = window.getComputedStyle(el);
+        return {
+          padding: styles.padding,
+          paddingLeft: styles.paddingLeft,
+          paddingRight: styles.paddingRight,
+        };
       });
-    }
-
-    // 7. Try a simpler query to show the interface clearly
-    console.log('📸 Capturing simple query example...');
-    
-    // Go back to SQL editor
-    const sqlTab = page.locator('button:has-text("SQL Editor")');
-    if (await sqlTab.count() > 0) {
-      await sqlTab.click();
+      console.log('Results info styles:', resultsInfoStyles);
     }
     
-    // Clear and enter a simple query
-    await editor.click();
-    await page.keyboard.down('Control');
-    await page.keyboard.press('a');
-    await page.keyboard.up('Control');
+    if (await tabContent.count() > 0) {
+      const tabContentStyles = await tabContent.evaluate(el => {
+        const styles = window.getComputedStyle(el);
+        return {
+          padding: styles.padding,
+          paddingLeft: styles.paddingLeft,
+          paddingRight: styles.paddingRight,
+        };
+      });
+      console.log('Tab content styles:', tabContentStyles);
+    }
     
-    const simpleQuery = `SELECT COUNT(*) as total_trips FROM nyc_taxi;`;
-    await page.keyboard.type(simpleQuery);
-    await page.waitForTimeout(500);
+    if (await resultsTable.count() > 0) {
+      const resultsTableStyles = await resultsTable.evaluate(el => {
+        const styles = window.getComputedStyle(el);
+        return {
+          padding: styles.padding,
+          paddingLeft: styles.paddingLeft,
+          paddingRight: styles.paddingRight,
+        };
+      });
+      console.log('Results table container styles:', resultsTableStyles);
+    }
     
-    await runButton.click();
-    await page.waitForTimeout(3000);
-    
-    await page.screenshot({ 
-      path: path.join(screenshotsDir, '07-simple-query.png'),
-      fullPage: false
-    });
-
-    console.log('✅ All screenshots captured successfully!');
+    console.log('Screenshots saved successfully!');
 
   } catch (error) {
-    console.error('❌ Error capturing screenshots:', error);
-    
-    // Capture error state
-    await page.screenshot({ 
-      path: path.join(screenshotsDir, 'error-state.png'),
-      fullPage: true
-    });
+    console.error('Error:', error);
   } finally {
     await browser.close();
   }
 }
 
-// Run the screenshot capture
-captureScreenshots().catch(console.error);
+captureScreenshots();

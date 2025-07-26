@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
 
 const SchemaBrowser = ({ apiBaseUrl, onCreateTable, onViewSQL }) => {
@@ -7,11 +7,7 @@ const SchemaBrowser = ({ apiBaseUrl, onCreateTable, onViewSQL }) => {
   const [error, setError] = useState(null);
   const [expandedSchemas, setExpandedSchemas] = useState(new Set());
 
-  useEffect(() => {
-    fetchSchemas();
-  }, []);
-
-  const fetchSchemas = async () => {
+  const fetchSchemas = useCallback(async () => {
     try {
       setLoading(true);
       const response = await axios.get(`${apiBaseUrl}/schemas`);
@@ -22,7 +18,11 @@ const SchemaBrowser = ({ apiBaseUrl, onCreateTable, onViewSQL }) => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [apiBaseUrl]);
+
+  useEffect(() => {
+    fetchSchemas();
+  }, [fetchSchemas]);
 
   const toggleSchemaExpansion = (schemaName) => {
     const newExpanded = new Set(expandedSchemas);

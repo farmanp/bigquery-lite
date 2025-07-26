@@ -57,7 +57,7 @@ const ResultsPanel = ({
             {results ? (
               <ResultsTable results={results} />
             ) : (
-              <div style={{ padding: '40px', textAlign: 'center', color: '#5f6368' }}>
+              <div style={{ padding: '32px 16px', textAlign: 'center', color: '#5f6368' }}>
                 <span className="material-icons" style={{ fontSize: '48px', marginBottom: '16px', display: 'block' }}>
                   table_chart
                 </span>
@@ -76,7 +76,7 @@ const ResultsPanel = ({
             {queryPlan ? (
               <QueryPlan plan={queryPlan} />
             ) : (
-              <div style={{ padding: '40px', textAlign: 'center', color: '#5f6368' }}>
+              <div style={{ padding: '32px 16px', textAlign: 'center', color: '#5f6368' }}>
                 <span className="material-icons" style={{ fontSize: '48px', marginBottom: '16px', display: 'block' }}>
                   account_tree
                 </span>
