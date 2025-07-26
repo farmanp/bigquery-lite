@@ -43,13 +43,28 @@ const SchemaUpload = ({ apiBaseUrl, onSchemaUploaded }) => {
       setError(null);
       setSuccess(null);
 
-      const response = await axios.post(`${apiBaseUrl}/schemas/upload`, formData, {
+      // Convert form data for the correct API format
+      const schemaName = formData.get('schema_name');
+      const schemaType = formData.get('schema_type');
+      const file = formData.get('file');
+
+      const apiFormData = new FormData();
+      
+      if (schemaType === 'proto') {
+        apiFormData.append('proto_file', file);
+      } else {
+        apiFormData.append('schema_file', file);
+      }
+      apiFormData.append('table_name', schemaName);
+      apiFormData.append('database_name', 'bigquery_lite');
+
+      const response = await axios.post(`${apiBaseUrl}/schemas/register`, apiFormData, {
         headers: {
           'Content-Type': 'multipart/form-data'
         }
       });
 
-      setSuccess(`Schema "${response.data.name}" uploaded successfully!`);
+      setSuccess(`Schema "${response.data.schema_id}" uploaded successfully!`);
       setTextInput('');
       setSchemaName('');
       onSchemaUploaded?.(response.data);
