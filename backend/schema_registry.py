@@ -185,7 +185,8 @@ class SchemaRegistry:
             result = subprocess.run([self.protoc_path, "--version"], 
                                   capture_output=True, text=True, timeout=10)
             if result.returncode != 0:
-                raise ProtocExecutionError(f"protoc not found or not working: {result.stderr}")
+                logger.warning(f"protoc not found or not working: {result.stderr}")
+                return
             
             logger.info(f"protoc found: {result.stdout.strip()}")
             
@@ -193,9 +194,9 @@ class SchemaRegistry:
             # Note: We'll check this during actual execution since plugin detection is complex
             
         except subprocess.TimeoutExpired:
-            raise ProtocExecutionError("protoc command timed out")
+            logger.warning("protoc command timed out")
         except FileNotFoundError:
-            raise ProtocExecutionError(f"protoc binary not found at {self.protoc_path}")
+            logger.warning(f"protoc binary not found at {self.protoc_path} - .proto file processing will be disabled")
     
     def _generate_schema_hash(self, content: str) -> str:
         """Generate a deterministic hash for schema content"""

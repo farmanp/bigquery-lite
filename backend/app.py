@@ -1197,9 +1197,9 @@ async def delete_schema(
 def main():
     """Run the backend server"""
     uvicorn.run(
-        "backend.app:app",
+        "app:app",
         host="0.0.0.0",
-        port=8001,
+        port=8002,
         reload=True,
         log_level="info"
     )
