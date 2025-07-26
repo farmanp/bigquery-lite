@@ -10,3 +10,6 @@ aiofiles==23.2.1
 
 # Schema management dependencies
 protobuf==4.24.4
+
+# Protobuf data ingestion dependencies
+# Note: Using protobuf's built-in MessageToDict instead of protobuf-to-dict for Python 3 compatibility

@@ -27,6 +27,7 @@ from runners.duckdb_runner import DuckDBRunner
 from runners.clickhouse_runner import ClickHouseRunner
 from schema_registry import SchemaRegistry, SchemaRegistryError, ProtocExecutionError
 from schema_translator import SchemaTranslator, SchemaValidationError
+from protobuf_ingester import ProtobufIngester, ProtobufDecodingError, ProtobufIngestionError
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -195,6 +196,33 @@ class ErrorResponse(BaseModel):
     details: Optional[Dict[str, Any]] = Field(None, description="Additional error details")
     timestamp: datetime = Field(default_factory=datetime.now, description="Error timestamp")
 
+
+# Protobuf Data Ingestion Models
+class ProtobufIngestionRequest(BaseModel):
+    """Request model for protobuf data ingestion"""
+    target_engine: str = Field(default="duckdb", description="Target engine for data ingestion")
+    batch_size: int = Field(default=1000, ge=1, le=10000, description="Batch size for bulk inserts")
+    create_table_if_not_exists: bool = Field(default=True, description="Create table if it doesn't exist")
+    
+    @validator('target_engine')
+    def validate_target_engine(cls, v):
+        valid_engines = {'duckdb', 'clickhouse'}
+        if v not in valid_engines:
+            raise ValueError(f'Invalid engine: {v}. Valid engines: {valid_engines}')
+        return v
+
+
+class ProtobufIngestionResponse(BaseModel):
+    """Response model for protobuf data ingestion"""
+    schema_id: str = Field(..., description="Schema identifier")
+    job_id: str = Field(..., description="Ingestion job identifier")
+    status: str = Field(..., description="Ingestion status")
+    records_processed: int = Field(..., description="Number of records processed")
+    records_inserted: int = Field(..., description="Number of records inserted successfully")
+    processing_time: float = Field(..., description="Processing time in seconds")
+    errors: List[str] = Field(default_factory=list, description="List of processing errors")
+    message: str = Field(..., description="Summary message")
+
 # =============================================================================
 # Global State and Dependency Injection
 # =============================================================================
@@ -212,6 +240,7 @@ system_config = {
 # Schema management state
 schema_registry: Optional[SchemaRegistry] = None
 schema_translator: Optional[SchemaTranslator] = None
+protobuf_ingester: Optional[ProtobufIngester] = None
 
 
 # Dependency injection functions
@@ -246,6 +275,17 @@ async def get_runners() -> Dict[str, Any]:
             detail="Database runners not initialized"
         )
     return runners
+
+
+async def get_protobuf_ingester() -> ProtobufIngester:
+    """Dependency injection for protobuf ingester"""
+    global protobuf_ingester
+    if protobuf_ingester is None:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Protobuf ingester not initialized"
+        )
+    return protobuf_ingester
 
 def init_database():
     """Initialize SQLite database for job history"""
@@ -319,7 +359,7 @@ def get_job_history(limit=50):
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Application lifespan management"""
-    global runners, schema_registry, schema_translator
+    global runners, schema_registry, schema_translator, protobuf_ingester
     
     # Startup
     print("🚀 Starting Enhanced BigQuery-Lite Backend...")
@@ -331,7 +371,8 @@ async def lifespan(app: FastAPI):
     try:
         schema_registry = SchemaRegistry()
         schema_translator = SchemaTranslator()
-        print("✅ Schema management components initialized")
+        protobuf_ingester = ProtobufIngester()
+        print("✅ Schema management and protobuf ingestion components initialized")
     except Exception as e:
         print(f"⚠️  Schema management initialization failed: {e}")
         # Continue without schema management if it fails
@@ -1191,6 +1232,174 @@ async def delete_schema(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Internal server error while deleting schema"
+        )
+
+
+# =============================================================================
+# Protobuf Data Ingestion Endpoints
+# =============================================================================
+
+@app.post("/schemas/{schema_id}/ingest", response_model=ProtobufIngestionResponse)
+async def ingest_protobuf_data(
+    schema_id: str,
+    pb_file: UploadFile = File(..., description="Binary protobuf file (.pb)"),
+    target_engine: str = Form("duckdb"),
+    batch_size: int = Form(1000),
+    create_table_if_not_exists: bool = Form(True),
+    registry: SchemaRegistry = Depends(get_schema_registry),
+    translator: SchemaTranslator = Depends(get_schema_translator),
+    ingester: ProtobufIngester = Depends(get_protobuf_ingester),
+    runners: Dict[str, Any] = Depends(get_runners)
+):
+    """
+    Ingest protobuf-encoded data using a registered schema
+    
+    This endpoint:
+    1. Validates that the schema exists and has a protobuf definition
+    2. Decodes the binary protobuf data using the registered schema
+    3. Converts decoded messages to database-compatible records
+    4. Optionally creates the target table if it doesn't exist
+    5. Bulk inserts the records into the specified engine
+    
+    Args:
+        schema_id: ID of the registered schema to use for decoding
+        pb_file: Binary protobuf file containing encoded messages (one per line)
+        target_engine: Target database engine (duckdb or clickhouse)
+        batch_size: Number of records to insert in each batch
+        create_table_if_not_exists: Whether to create table if it doesn't exist
+    
+    Returns:
+        ProtobufIngestionResponse with ingestion results and statistics
+    """
+    start_time = datetime.now()
+    job_id = str(uuid.uuid4())[:8]
+    
+    try:
+        # Validate input parameters
+        if target_engine not in runners:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Engine '{target_engine}' not available. Available engines: {list(runners.keys())}"
+            )
+        
+        if not pb_file.filename.endswith('.pb'):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="File must have .pb extension"
+            )
+        
+        # Get schema from registry
+        schema_version = await registry.get_schema(schema_id)
+        if not schema_version:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Schema not found: {schema_id}"
+            )
+        
+        # Verify schema has protobuf content
+        if not schema_version.proto_content:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Schema {schema_id} was not registered with a .proto file - protobuf ingestion not supported"
+            )
+        
+        # Read binary protobuf data
+        pb_data = await pb_file.read()
+        logger.info(f"Read {len(pb_data)} bytes from protobuf file {pb_file.filename}")
+        
+        # Create table if requested and not exists
+        if create_table_if_not_exists:
+            try:
+                create_sql = translator.generate_create_table_sql(
+                    schema_version.schema_json,
+                    schema_version.table_name,
+                    target_engine,
+                    schema_version.database_name
+                )
+                
+                runner = runners[target_engine]
+                await runner.execute_query(create_sql)
+                logger.info(f"Ensured table exists: {schema_version.database_name}.{schema_version.table_name}")
+                
+            except Exception as e:
+                logger.warning(f"Table creation failed (may already exist): {e}")
+        
+        # Decode protobuf messages
+        try:
+            decoded_messages = ingester.decode_protobuf_messages(
+                schema_version.proto_content, pb_data
+            )
+            logger.info(f"Decoded {len(decoded_messages)} protobuf messages")
+            
+        except ProtobufDecodingError as e:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail=f"Protobuf decoding failed: {e}"
+            )
+        
+        # Prepare records for database insertion
+        prepared_records = ingester.prepare_records_for_insertion(
+            decoded_messages, schema_version.schema_json
+        )
+        logger.info(f"Prepared {len(prepared_records)} records for insertion")
+        
+        # Ingest into database
+        runner = runners[target_engine]
+        records_inserted, errors = await ingester.ingest_to_database(
+            prepared_records,
+            schema_version.table_name,
+            schema_version.database_name,
+            runner,
+            batch_size
+        )
+        
+        # Calculate processing time
+        processing_time = (datetime.now() - start_time).total_seconds()
+        
+        # Determine status
+        if records_inserted == len(prepared_records):
+            status_str = "completed"
+            message = f"Successfully ingested {records_inserted} records into {target_engine}"
+        elif records_inserted > 0:
+            status_str = "partial"
+            message = f"Partially successful: {records_inserted}/{len(prepared_records)} records ingested"
+        else:
+            status_str = "failed"
+            message = "No records were successfully ingested"
+        
+        if errors:
+            message += f" ({len(errors)} batch errors occurred)"
+        
+        logger.info(f"Ingestion job {job_id} completed: {message}")
+        
+        return ProtobufIngestionResponse(
+            schema_id=schema_id,
+            job_id=job_id,
+            status=status_str,
+            records_processed=len(decoded_messages),
+            records_inserted=records_inserted,
+            processing_time=processing_time,
+            errors=errors,
+            message=message
+        )
+        
+    except HTTPException:
+        raise
+    except ProtobufDecodingError as e:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"Protobuf decoding failed: {e}"
+        )
+    except ProtobufIngestionError as e:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"Protobuf ingestion failed: {e}"
+        )
+    except Exception as e:
+        logger.error(f"Unexpected error in protobuf ingestion: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Internal server error during protobuf ingestion"
         )
 
 
