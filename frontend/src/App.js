@@ -486,51 +486,6 @@ function App() {
                     <option value="clickhouse">ClickHouse (Distributed)</option>
                   </select>
                 </div>
-                
-                {/* Query Validation Display */}
-                {(queryValidation || isValidating) && (
-                  <div className="query-validation">
-                    {isValidating ? (
-                      <div className="validation-loading">
-                        <div className="spinner-small"></div>
-                        <span>Validating...</span>
-                      </div>
-                    ) : queryValidation && (
-                      <div className={`validation-result ${queryValidation.valid ? 'valid' : 'invalid'}`}>
-                        {queryValidation.valid ? (
-                          <div className="validation-success">
-                            <span className="material-icons">check_circle</span>
-                            <span className="validation-message">{queryValidation.suggestion}</span>
-                            {queryValidation.warnings.length > 0 && (
-                              <div className="validation-warnings">
-                                {queryValidation.warnings.map((warning, index) => (
-                                  <div key={index} className="warning-item">
-                                    <span className="material-icons">warning</span>
-                                    <span>{warning}</span>
-                                  </div>
-                                ))}
-                              </div>
-                            )}
-                          </div>
-                        ) : (
-                          <div className="validation-error">
-                            <span className="material-icons">error</span>
-                            <span className="validation-message">{queryValidation.suggestion}</span>
-                            {queryValidation.errors.length > 0 && (
-                              <div className="validation-errors">
-                                {queryValidation.errors.map((error, index) => (
-                                  <div key={index} className="error-item">
-                                    <span>{error}</span>
-                                  </div>
-                                ))}
-                              </div>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                )}
               </div>
               
               <div className="editor-controls">
@@ -588,6 +543,51 @@ function App() {
             activeTab={activeTab}
             onTabChange={setActiveTab}
           />
+
+          {/* Query Validation Display - Moved to bottom */}
+          {(queryValidation || isValidating) && (
+            <div className="query-validation-bottom">
+              {isValidating ? (
+                <div className="validation-loading">
+                  <div className="spinner-small"></div>
+                  <span>Validating...</span>
+                </div>
+              ) : queryValidation && (
+                <div className={`validation-result ${queryValidation.valid ? 'valid' : 'invalid'}`}>
+                  {queryValidation.valid ? (
+                    <div className="validation-success">
+                      <span className="material-icons">check_circle</span>
+                      <span className="validation-message">{queryValidation.suggestion}</span>
+                      {queryValidation.warnings.length > 0 && (
+                        <div className="validation-warnings">
+                          {queryValidation.warnings.map((warning, index) => (
+                            <div key={index} className="warning-item">
+                              <span className="material-icons">warning</span>
+                              <span>{warning}</span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="validation-error">
+                      <span className="material-icons">error</span>
+                      <span className="validation-message">{queryValidation.suggestion}</span>
+                      {queryValidation.errors.length > 0 && (
+                        <div className="validation-errors">
+                          {queryValidation.errors.map((error, index) => (
+                            <div key={index} className="error-item">
+                              <span>{error}</span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </div>
 

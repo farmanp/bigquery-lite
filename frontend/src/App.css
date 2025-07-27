@@ -96,6 +96,17 @@
   color: #c62828;
 }
 
+/* Bottom Query Validation Styles */
+.query-validation-bottom {
+  margin: 12px 0;
+  padding: 0 16px;
+}
+
+.query-validation-bottom .validation-result {
+  max-width: none;
+  margin: 0;
+}
+
 .app {
   height: 100vh;
   display: flex;
