@@ -1,0 +1,106 @@
+```mermaid
+graph TB
+    subgraph "Client Layer"
+        A[React Web UI<br/>localhost:3000]
+        B[CLI Tool<br/>bqlite]
+        C[External APIs<br/>REST Clients]
+    end
+    
+    subgraph "API Gateway Layer"
+        D[FastAPI Backend<br/>localhost:8001]
+        E[CORS Middleware]
+        F[Request Validation]
+        G[Error Handling]
+    end
+    
+    subgraph "Core Business Logic"
+        H[Query Router<br/>Engine Selection]
+        I[Schema Registry<br/>Protobuf Management]
+        J[Job Manager<br/>Async Execution]
+        K[Protobuf Ingester<br/>Data Processing]
+    end
+    
+    subgraph "Execution Layer"
+        L[DuckDB Runner<br/>Embedded Analytics]
+        M[ClickHouse Runner<br/>Distributed OLAP]
+        N[Schema Translator<br/>DDL Generation]
+    end
+    
+    subgraph "Storage Layer"
+        O[DuckDB Files<br/>Local Storage]
+        P[ClickHouse Cluster<br/>Distributed Storage]
+        Q[SQLite DB<br/>Metadata & Jobs]
+        R[File System<br/>Schemas & Data]
+    end
+    
+    subgraph "Data Sources"
+        S[Parquet Files<br/>NYC Taxi Data]
+        T[Protobuf Files<br/>.pb Data]
+        U[Schema Files<br/>.proto Definitions]
+        V[JSON/CSV<br/>Sample Data]
+    end
+    
+    %% Client to API connections
+    A --> D
+    B --> D
+    C --> D
+    
+    %% API Gateway processing
+    D --> E
+    E --> F
+    F --> G
+    G --> H
+    G --> I
+    G --> J
+    G --> K
+    
+    %% Business logic interactions
+    H --> L
+    H --> M
+    I --> N
+    J --> H
+    K --> I
+    K --> H
+    
+    %% Execution to storage
+    L --> O
+    M --> P
+    N --> L
+    N --> M
+    I --> Q
+    J --> Q
+    
+    %% Data source connections
+    S --> L
+    T --> K
+    U --> I
+    V --> L
+    V --> M
+    
+    %% Storage interconnections
+    Q --> R
+    O --> R
+    
+    %% Styling for better visualization
+    classDef clientLayer fill:#e1f5fe,stroke:#0277bd,stroke-width:2px
+    classDef apiLayer fill:#f3e5f5,stroke:#7b1fa2,stroke-width:2px
+    classDef businessLayer fill:#e8f5e8,stroke:#2e7d32,stroke-width:2px
+    classDef executionLayer fill:#fff3e0,stroke:#ef6c00,stroke-width:2px
+    classDef storageLayer fill:#fce4ec,stroke:#c2185b,stroke-width:2px
+    classDef dataLayer fill:#f1f8e9,stroke:#558b2f,stroke-width:2px
+    
+    class A,B,C clientLayer
+    class D,E,F,G apiLayer
+    class H,I,J,K businessLayer
+    class L,M,N executionLayer
+    class O,P,Q,R storageLayer
+    class S,T,U,V dataLayer
+    
+    %% Additional annotations
+    A -.->|HTTP/WebSocket| D
+    B -.->|REST API| D
+    H -.->|Strategy Pattern| L
+    H -.->|Strategy Pattern| M
+    I -.->|protoc-gen-bq-schema| N
+    J -.->|Async Queue| H
+```

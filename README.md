@@ -163,6 +163,8 @@ ORDER BY pickup_date;
 
 ## 🏗️ Architecture Overview
 
+BigQuery-Lite implements a **modular, layered architecture** with clean separation between presentation, business logic, and data access layers.
+
 ```
 ┌─────────────┐    ┌─────────────┐    ┌─────────────┐
 │   Frontend  │    │   Backend   │    │ ClickHouse  │
@@ -177,24 +179,36 @@ ORDER BY pickup_date;
                     └─────────────┘
 ```
 
+### 📚 Detailed Architecture Documentation
+
+Explore our comprehensive architecture documentation:
+
+- **[🎯 System Overview](docs/architecture/system-overview.md)** - Purpose, goals, and high-level design patterns
+- **[⚡ FastAPI Backend](docs/architecture/component-fastapi.md)** - API architecture, endpoints, and request handling
+- **[🔧 Query Engines](docs/architecture/component-query-engines.md)** - DuckDB and ClickHouse integration patterns  
+- **[🗄️ Schema Registry](docs/architecture/component-schema-registry.md)** - Protobuf schema management and DDL generation
+- **[🚀 Development Environment](docs/architecture/deployment-dev-env.md)** - Local setup, Docker, and configuration
+- **[🔌 System Interfaces](docs/architecture/interfaces.md)** - Internal/external APIs and integration patterns
+- **[📊 Architecture Diagram](docs/architecture/architecture-diagram.mmd)** - Visual system overview (Mermaid)
+
 ### Technology Stack
 
 **Frontend:**
-- ⚛️ **React 18**: Modern UI framework
-- 🎨 **Monaco Editor**: Professional code editor
-- 📊 **Real-time Updates**: Live query status and results
+- ⚛️ **React 18**: Modern UI framework with concurrent features
+- 🎨 **Monaco Editor**: VS Code editor for professional SQL editing
+- 📊 **Real-time Updates**: WebSocket-based live query status and results
 - 🎯 **BigQuery-inspired Design**: Familiar interface for BigQuery users
 
 **Backend:**
-- 🐍 **FastAPI**: High-performance Python API framework
-- 🔄 **Async Processing**: Non-blocking query execution
-- 📋 **Job Queue System**: BigQuery-like slot management
-- 📊 **Performance Monitoring**: Detailed execution metrics
+- 🐍 **FastAPI**: High-performance async Python API framework
+- 🔄 **Async Processing**: Non-blocking query execution with job queuing
+- 📋 **Slot-Based Scheduling**: BigQuery-like resource allocation system
+- 📊 **Performance Monitoring**: Detailed execution metrics and query plans
 
 **Data Engines:**
-- 🦆 **DuckDB**: Embedded analytical database
-- 🏠 **ClickHouse**: Distributed columnar database
-- 📊 **Parquet Support**: Efficient columnar data format
+- 🦆 **DuckDB**: Embedded analytical database for interactive queries
+- 🏠 **ClickHouse**: Distributed columnar database for scalable analytics
+- 📊 **Protobuf Integration**: Schema-driven data ingestion with `protoc-gen-bq-schema`
 
 ## 🔧 Configuration & Setup
 
