@@ -48,6 +48,21 @@ class QueryRequest(BaseModel):
     estimated_slots: int = Field(default=1, ge=1, le=10, description="Estimated slots")
     max_execution_time: int = Field(default=300, description="Max execution time (seconds)")
 
+class QueryValidationRequest(BaseModel):
+    sql: str = Field(..., description="SQL query to validate")
+    engine: str = Field(default="duckdb", description="Engine: duckdb or clickhouse")
+
+class QueryValidationResponse(BaseModel):
+    valid: bool = Field(..., description="Whether the query is valid")
+    estimated_bytes_processed: int = Field(..., description="Estimated bytes to be processed")
+    estimated_rows_scanned: int = Field(..., description="Estimated rows to be scanned")
+    estimated_execution_time_ms: int = Field(..., description="Estimated execution time in milliseconds")
+    affected_tables: List[str] = Field(..., description="List of tables affected by the query")
+    query_type: str = Field(..., description="Type of query (SELECT, INSERT, UPDATE, etc.)")
+    warnings: List[str] = Field(default_factory=list, description="Query warnings")
+    errors: List[str] = Field(default_factory=list, description="Query validation errors")
+    suggestion: Optional[str] = Field(None, description="BigQuery-style processing message")
+
 class QueryResponse(BaseModel):
     job_id: str
     status: str
@@ -670,6 +685,46 @@ async def cancel_job(job_id: str):
         raise HTTPException(status_code=400, detail="Cannot cancel running job")
     
     raise HTTPException(status_code=404, detail=f"Job {job_id} not found")
+
+@app.post("/queries/validate", response_model=QueryValidationResponse)
+async def validate_query(validation_request: QueryValidationRequest):
+    """Validate a query and estimate data processing without execution"""
+    
+    # Validate engine
+    if validation_request.engine not in runners:
+        raise HTTPException(
+            status_code=400, 
+            detail=f"Engine '{validation_request.engine}' not available. Available engines: {list(runners.keys())}"
+        )
+    
+    try:
+        runner = runners[validation_request.engine]
+        
+        # Check if runner has validate_query method
+        if not hasattr(runner, 'validate_query'):
+            raise HTTPException(
+                status_code=400,
+                detail=f"Query validation not supported for engine '{validation_request.engine}'"
+            )
+        
+        # Validate query using the engine's validation method
+        validation_result = await runner.validate_query(validation_request.sql)
+        
+        return QueryValidationResponse(**validation_result)
+        
+    except Exception as e:
+        # Return error as validation failure
+        return QueryValidationResponse(
+            valid=False,
+            estimated_bytes_processed=0,
+            estimated_rows_scanned=0,
+            estimated_execution_time_ms=0,
+            affected_tables=[],
+            query_type="UNKNOWN",
+            warnings=[],
+            errors=[f"Validation failed: {str(e)}"],
+            suggestion="Query validation encountered an error. Please check the query syntax."
+        )
 
 @app.get("/examples")
 async def get_examples():
@@ -1408,7 +1463,7 @@ def main():
     uvicorn.run(
         "app:app",
         host="0.0.0.0",
-        port=8002,
+        port=8001,
         reload=True,
         log_level="info"
     )

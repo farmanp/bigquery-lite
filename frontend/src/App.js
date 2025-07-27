@@ -45,6 +45,8 @@ function App() {
   const [jobHistory, setJobHistory] = useState([]);
   const [systemStatus, setSystemStatus] = useState(null);
   const [activeTab, setActiveTab] = useState('results');
+  const [queryValidation, setQueryValidation] = useState(null);
+  const [isValidating, setIsValidating] = useState(false);
   
   // Schema management state
   const [showTableCreation, setShowTableCreation] = useState(false);
@@ -142,6 +144,51 @@ function App() {
     const interval = setInterval(pollJob, 1000); // Poll every second
     return () => clearInterval(interval);
   }, [currentTab?.currentJob, activeTabId]);
+
+  const validateQuery = useCallback(async (queryText, engine) => {
+    if (!queryText.trim()) {
+      setQueryValidation(null);
+      return;
+    }
+
+    setIsValidating(true);
+    try {
+      const response = await axios.post(`${API_BASE_URL}/queries/validate`, {
+        sql: queryText,
+        engine: engine
+      });
+
+      setQueryValidation(response.data);
+    } catch (error) {
+      setQueryValidation({
+        valid: false,
+        estimated_bytes_processed: 0,
+        estimated_rows_scanned: 0,
+        estimated_execution_time_ms: 0,
+        affected_tables: [],
+        query_type: 'UNKNOWN',
+        warnings: [],
+        errors: [error.response?.data?.detail || error.message],
+        suggestion: 'Query validation failed. Please check the syntax and try again.'
+      });
+    } finally {
+      setIsValidating(false);
+    }
+  }, []);
+
+  // Debounce query validation
+  const debounceValidation = useCallback(
+    (() => {
+      let timeoutId;
+      return (queryText, engine) => {
+        clearTimeout(timeoutId);
+        timeoutId = setTimeout(() => {
+          validateQuery(queryText, engine);
+        }, 1000); // Wait 1 second after user stops typing
+      };
+    })(),
+    [validateQuery]
+  );
 
   const executeQuery = useCallback(async () => {
     if (!currentTab?.queryText.trim() || currentTab?.isExecuting) return;
@@ -336,7 +383,11 @@ function App() {
           }
         : tab
     ));
-  }, [activeTabId]);
+    
+    // Trigger validation with debounce
+    const currentEngine = currentTab?.selectedEngine || 'duckdb';
+    debounceValidation(newText, currentEngine);
+  }, [activeTabId, currentTab?.selectedEngine, debounceValidation]);
 
   const handleEngineChange = useCallback((engine) => {
     setTabs(prevTabs => prevTabs.map(tab => 
@@ -344,7 +395,12 @@ function App() {
         ? { ...tab, selectedEngine: engine }
         : tab
     ));
-  }, [activeTabId]);
+    
+    // Re-validate query with new engine
+    if (currentTab?.queryText?.trim()) {
+      debounceValidation(currentTab.queryText, engine);
+    }
+  }, [activeTabId, currentTab?.queryText, debounceValidation]);
 
   // Schema management handlers
   const handleCreateTable = useCallback((schemaName, engine) => {
@@ -487,6 +543,51 @@ function App() {
             activeTab={activeTab}
             onTabChange={setActiveTab}
           />
+
+          {/* Query Validation Display - Moved to bottom */}
+          {(queryValidation || isValidating) && (
+            <div className="query-validation-bottom">
+              {isValidating ? (
+                <div className="validation-loading">
+                  <div className="spinner-small"></div>
+                  <span>Validating...</span>
+                </div>
+              ) : queryValidation && (
+                <div className={`validation-result ${queryValidation.valid ? 'valid' : 'invalid'}`}>
+                  {queryValidation.valid ? (
+                    <div className="validation-success">
+                      <span className="material-icons">check_circle</span>
+                      <span className="validation-message">{queryValidation.suggestion}</span>
+                      {queryValidation.warnings.length > 0 && (
+                        <div className="validation-warnings">
+                          {queryValidation.warnings.map((warning, index) => (
+                            <div key={index} className="warning-item">
+                              <span className="material-icons">warning</span>
+                              <span>{warning}</span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="validation-error">
+                      <span className="material-icons">error</span>
+                      <span className="validation-message">{queryValidation.suggestion}</span>
+                      {queryValidation.errors.length > 0 && (
+                        <div className="validation-errors">
+                          {queryValidation.errors.map((error, index) => (
+                            <div key={index} className="error-item">
+                              <span>{error}</span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </div>
 
