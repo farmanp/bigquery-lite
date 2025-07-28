@@ -1,6 +1,6 @@
 # 🐳 Docker Deployment Guide
 
-This guide covers deploying BigQuery-Lite using Docker and Docker Compose.
+ide covers deploying BigQuery-Lite using Docker and Docker Compose.
 
 ## 🚀 Quick Start (Full Docker Setup)
 
