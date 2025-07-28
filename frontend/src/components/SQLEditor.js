@@ -126,7 +126,9 @@ const SQLEditor = ({ value, onChange, onExecute, disabled }) => {
   };
 
   const handleEditorChange = (newValue) => {
-    onChange(newValue || '');
+    if (onChange && typeof onChange === 'function') {
+      onChange(newValue || '');
+    }
   };
 
   return (
