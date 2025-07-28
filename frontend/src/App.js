@@ -48,6 +48,13 @@ function App() {
   const [queryValidation, setQueryValidation] = useState(null);
   const [isValidating, setIsValidating] = useState(false);
   
+  // Panel resize state
+  const [editorHeight, setEditorHeight] = useState(300);
+  const [isResizing, setIsResizing] = useState(false);
+  
+  // Sidebar collapse state
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  
   // Schema management state
   const [showTableCreation, setShowTableCreation] = useState(false);
   const [showSQLViewer, setShowSQLViewer] = useState(false);
@@ -178,6 +185,7 @@ function App() {
 
   // Debounce query validation
   const debounceValidation = useCallback(
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     (() => {
       let timeoutId;
       return (queryText, engine) => {
@@ -442,6 +450,52 @@ function App() {
     setTimeout(() => executeQuery(), 100);
   }, [activeTabId, executeQuery]);
 
+  // Sidebar toggle handler
+  const toggleSidebar = useCallback(() => {
+    setSidebarCollapsed(prev => !prev);
+  }, []);
+
+  // Panel resize handlers
+  const handleMouseDown = useCallback((e) => {
+    setIsResizing(true);
+    document.body.classList.add('resizing');
+    e.preventDefault();
+  }, []);
+
+  const handleMouseMove = useCallback((e) => {
+    if (!isResizing) return;
+    
+    const workspace = document.querySelector('.workspace');
+    if (!workspace) return;
+    
+    const workspaceRect = workspace.getBoundingClientRect();
+    const newHeight = e.clientY - workspaceRect.top - 70; // Account for tabs and header height
+    
+    // Set minimum and maximum heights
+    const minHeight = 200;
+    const maxHeight = workspaceRect.height - 250; // Leave space for results panel
+    
+    setEditorHeight(Math.max(minHeight, Math.min(maxHeight, newHeight)));
+  }, [isResizing]);
+
+  const handleMouseUp = useCallback(() => {
+    setIsResizing(false);
+    document.body.classList.remove('resizing');
+  }, []);
+
+  // Add mouse events when resizing
+  useEffect(() => {
+    if (isResizing) {
+      document.addEventListener('mousemove', handleMouseMove);
+      document.addEventListener('mouseup', handleMouseUp);
+      
+      return () => {
+        document.removeEventListener('mousemove', handleMouseMove);
+        document.removeEventListener('mouseup', handleMouseUp);
+      };
+    }
+  }, [isResizing, handleMouseMove, handleMouseUp]);
+
   return (
     <div className="app">
       <Header 
@@ -450,17 +504,21 @@ function App() {
       />
       
       <div className="main-content">
-        <Sidebar 
-          jobHistory={jobHistory}
-          onLoadQuery={loadSampleQuery}
-          systemStatus={systemStatus}
-          apiBaseUrl={API_BASE_URL}
-          onCreateTable={handleCreateTable}
-          onViewSQL={handleViewSQL}
-          onSchemaUploaded={handleSchemaUploaded}
-        />
+        {!sidebarCollapsed && (
+          <Sidebar 
+            jobHistory={jobHistory}
+            onLoadQuery={loadSampleQuery}
+            systemStatus={systemStatus}
+            apiBaseUrl={API_BASE_URL}
+            onCreateTable={handleCreateTable}
+            onViewSQL={handleViewSQL}
+            onSchemaUploaded={handleSchemaUploaded}
+            isCollapsed={sidebarCollapsed}
+            onToggleCollapse={toggleSidebar}
+          />
+        )}
         
-        <div className="workspace">
+        <div className={`workspace ${sidebarCollapsed ? 'sidebar-collapsed' : ''}`}>
           <QueryTabs
             tabs={tabs}
             activeTabId={activeTabId}
@@ -470,9 +528,21 @@ function App() {
             onTabSave={handleTabSave}
           />
           
-          <div className="query-editor-section">
+          <div 
+            className="query-editor-section"
+            style={{ height: `${editorHeight}px` }}
+          >
             <div className="editor-header">
               <div className="editor-controls">
+                {sidebarCollapsed && (
+                  <button 
+                    className="sidebar-toggle-btn"
+                    onClick={toggleSidebar}
+                    title="Expand left panel"
+                  >
+                    <span className="material-icons">keyboard_arrow_right</span>
+                  </button>
+                )}
                 <div className="engine-selector">
                   <label htmlFor="engine-select">Engine:</label>
                   <select
@@ -532,6 +602,15 @@ function App() {
               onExecute={executeQuery}
               disabled={currentTab?.isExecuting}
             />
+          </div>
+
+          <div 
+            className="resize-handle"
+            onMouseDown={handleMouseDown}
+          >
+            <div className="resize-handle-inner">
+              <span className="material-icons">drag_handle</span>
+            </div>
           </div>
           
           <ResultsPanel

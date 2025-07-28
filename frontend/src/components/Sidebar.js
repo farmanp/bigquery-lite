@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import SchemaBrowser from './SchemaBrowser';
 import SchemaUpload from './SchemaUpload';
 
-const Sidebar = ({ jobHistory, onLoadQuery, systemStatus, apiBaseUrl, onCreateTable, onViewSQL, onSchemaUploaded }) => {
+const Sidebar = ({ jobHistory, onLoadQuery, systemStatus, apiBaseUrl, onCreateTable, onViewSQL, onSchemaUploaded, isCollapsed, onToggleCollapse }) => {
   const [activeSection, setActiveSection] = useState('explorer');
   const [searchQuery, setSearchQuery] = useState('');
 
@@ -111,10 +111,19 @@ ORDER BY trip_count DESC;`,
         <div className="sidebar-title">
           <span className="material-icons">folder</span>
           <span>Explorer</span>
+          <button 
+            className="sidebar-collapse-btn"
+            onClick={onToggleCollapse}
+            title="Collapse left panel"
+          >
+            <span className="material-icons">keyboard_arrow_left</span>
+          </button>
         </div>
-        <button className="sidebar-action-btn">
-          <span className="material-icons">add</span>
-        </button>
+        <div className="sidebar-header-actions">
+          <button className="sidebar-action-btn">
+            <span className="material-icons">add</span>
+          </button>
+        </div>
       </div>
 
       {/* Search */}
