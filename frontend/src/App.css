@@ -126,6 +126,7 @@
   flex-direction: column;
   background: white;
   min-width: 0; /* Allow flex child to shrink */
+  transition: margin-left 0.3s ease;
 }
 
 .query-editor-section {
@@ -223,6 +224,35 @@ body.resizing {
 body.resizing * {
   cursor: row-resize !important;
   user-select: none !important;
+}
+
+/* Sidebar collapse styles */
+.workspace.sidebar-collapsed {
+  margin-left: 0;
+  width: 100%;
+}
+
+.sidebar-toggle-btn {
+  background: none;
+  border: none;
+  border-radius: 4px;
+  padding: 6px 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  color: #5f6368;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-right: 12px;
+}
+
+.sidebar-toggle-btn:hover {
+  background: #f1f3f4;
+  color: #3c4043;
+}
+
+.sidebar-toggle-btn .material-icons {
+  font-size: 18px;
 }
 
 /* Responsive design */

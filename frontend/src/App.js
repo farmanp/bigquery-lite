@@ -52,6 +52,9 @@ function App() {
   const [editorHeight, setEditorHeight] = useState(300);
   const [isResizing, setIsResizing] = useState(false);
   
+  // Sidebar collapse state
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  
   // Schema management state
   const [showTableCreation, setShowTableCreation] = useState(false);
   const [showSQLViewer, setShowSQLViewer] = useState(false);
@@ -447,6 +450,11 @@ function App() {
     setTimeout(() => executeQuery(), 100);
   }, [activeTabId, executeQuery]);
 
+  // Sidebar toggle handler
+  const toggleSidebar = useCallback(() => {
+    setSidebarCollapsed(prev => !prev);
+  }, []);
+
   // Panel resize handlers
   const handleMouseDown = useCallback((e) => {
     setIsResizing(true);
@@ -496,17 +504,21 @@ function App() {
       />
       
       <div className="main-content">
-        <Sidebar 
-          jobHistory={jobHistory}
-          onLoadQuery={loadSampleQuery}
-          systemStatus={systemStatus}
-          apiBaseUrl={API_BASE_URL}
-          onCreateTable={handleCreateTable}
-          onViewSQL={handleViewSQL}
-          onSchemaUploaded={handleSchemaUploaded}
-        />
+        {!sidebarCollapsed && (
+          <Sidebar 
+            jobHistory={jobHistory}
+            onLoadQuery={loadSampleQuery}
+            systemStatus={systemStatus}
+            apiBaseUrl={API_BASE_URL}
+            onCreateTable={handleCreateTable}
+            onViewSQL={handleViewSQL}
+            onSchemaUploaded={handleSchemaUploaded}
+            isCollapsed={sidebarCollapsed}
+            onToggleCollapse={toggleSidebar}
+          />
+        )}
         
-        <div className="workspace">
+        <div className={`workspace ${sidebarCollapsed ? 'sidebar-collapsed' : ''}`}>
           <QueryTabs
             tabs={tabs}
             activeTabId={activeTabId}
@@ -522,6 +534,15 @@ function App() {
           >
             <div className="editor-header">
               <div className="editor-controls">
+                {sidebarCollapsed && (
+                  <button 
+                    className="sidebar-toggle-btn"
+                    onClick={toggleSidebar}
+                    title="Expand left panel"
+                  >
+                    <span className="material-icons">keyboard_arrow_right</span>
+                  </button>
+                )}
                 <div className="engine-selector">
                   <label htmlFor="engine-select">Engine:</label>
                   <select
