@@ -1,0 +1,58 @@
+[package]
+name = "bigquery-lite-engine"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+name = "bigquery_lite_engine"
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+# DataFusion for SQL execution
+datafusion = "44.0"
+datafusion-expr = "44.0"
+datafusion-sql = "44.0"
+datafusion-common = "44.0"
+
+# Apache Arrow for columnar data processing
+arrow = "54.0"
+arrow-flight = "54.0"
+arrow-schema = "54.0"
+
+# Async runtime
+tokio = { version = "1.40", features = ["full"] }
+tokio-util = "0.7"
+
+# Python FFI bindings
+pyo3 = { version = "0.20", features = ["extension-module", "abi3-py39"] }
+pyo3-asyncio = { version = "0.20", features = ["tokio-runtime"] }
+
+# Serialization and data handling
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+
+# Error handling and logging
+thiserror = "2.0"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+
+# Performance and memory management
+rayon = "1.8"
+parking_lot = "0.12"
+num_cpus = "1.16"
+rand = "0.8"
+log = "0.4"
+
+# Optional: Object store support for cloud storage
+object_store = { version = "0.11", optional = true }
+
+[features]
+default = ["object_store"]
+
+[dev-dependencies]
+tempfile = "3.8"
+criterion = { version = "0.5", features = ["html_reports"] }
+
+[[bench]]
+name = "query_benchmark"
+harness = false
