@@ -64,11 +64,11 @@ const SchemaExplorer = forwardRef(({ apiBaseUrl, systemStatus }, ref) => {
     }
   };
 
-  // Format table name for display
-  const formatTableName = (tableName) => {
-    // Make the table name look more friendly
-    return tableName.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
-  };
+  // Format table name for display (unused for now but kept for future enhancement)
+  // const formatTableName = (tableName) => {
+  //   // Make the table name look more friendly
+  //   return tableName.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+  // };
 
   // Handle table click (could be extended to show table details)
   const handleTableClick = useCallback((datasetId, tableId) => {
