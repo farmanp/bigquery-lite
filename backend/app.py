@@ -766,6 +766,152 @@ ORDER BY hour;""",
 
 
 # =============================================================================
+# Schema Discovery Endpoints
+# =============================================================================
+
+@app.get("/schemas")
+async def get_all_schemas(
+    engine: str = "duckdb",
+    runners: Dict[str, Any] = Depends(get_runners)
+):
+    """
+    Get all datasets and tables from the specified engine
+    
+    Returns a BigQuery-style schema structure with datasets and their tables.
+    This endpoint provides the data needed for the Explorer UI component.
+    """
+    try:
+        # Validate engine
+        if engine not in runners:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Engine '{engine}' not available. Available engines: {list(runners.keys())}"
+            )
+        
+        runner = runners[engine]
+        
+        # Get schema information from the runner
+        schema_info = await runner.get_schema_info()
+        
+        if "error" in schema_info:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Failed to get schema info from {engine}: {schema_info['error']}"
+            )
+        
+        # Transform the schema info into BigQuery-style format
+        datasets = {}
+        
+        # Group tables by dataset (schema)
+        tables = schema_info.get("tables", {})
+        for table_name, table_info in tables.items():
+            # For DuckDB, we'll group by schema or use 'main' as default dataset
+            dataset_name = "main"  # Default dataset for DuckDB
+            
+            if dataset_name not in datasets:
+                datasets[dataset_name] = {
+                    "dataset_id": dataset_name,
+                    "dataset_name": dataset_name,
+                    "tables": []
+                }
+            
+            datasets[dataset_name]["tables"].append({
+                "table_id": table_name,
+                "table_name": table_name,
+                "table_type": table_info.get("type", "TABLE"),
+                "columns": table_info.get("columns", [])
+            })
+        
+        return {
+            "engine": engine,
+            "datasets": list(datasets.values()),
+            "total_datasets": len(datasets),
+            "total_tables": sum(len(ds["tables"]) for ds in datasets.values()),
+            "timestamp": datetime.now().isoformat()
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting schemas: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Internal server error while retrieving schemas: {str(e)}"
+        )
+
+
+@app.get("/schemas/{dataset_id}")
+async def get_dataset_tables(
+    dataset_id: str,
+    engine: str = "duckdb",
+    runners: Dict[str, Any] = Depends(get_runners)
+):
+    """
+    Get tables only for a specific dataset
+    
+    Returns just the tables within a given dataset, useful for when the Explorer
+    UI needs to refresh or expand a specific dataset node.
+    """
+    try:
+        # Validate engine
+        if engine not in runners:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Engine '{engine}' not available. Available engines: {list(runners.keys())}"
+            )
+        
+        runner = runners[engine]
+        
+        # Get schema information from the runner
+        schema_info = await runner.get_schema_info()
+        
+        if "error" in schema_info:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Failed to get schema info from {engine}: {schema_info['error']}"
+            )
+        
+        # Filter tables for the requested dataset
+        tables = schema_info.get("tables", {})
+        dataset_tables = []
+        
+        # For now, we'll assume all tables belong to 'main' dataset in DuckDB
+        # In a real implementation, you might query information_schema.schemata
+        if dataset_id == "main":
+            for table_name, table_info in tables.items():
+                dataset_tables.append({
+                    "table_id": table_name,
+                    "table_name": table_name,
+                    "table_type": table_info.get("type", "TABLE"),
+                    "columns": table_info.get("columns", [])
+                })
+        
+        if not dataset_tables and dataset_id != "main":
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Dataset '{dataset_id}' not found"
+            )
+        
+        return {
+            "engine": engine,
+            "dataset_id": dataset_id,
+            "dataset_name": dataset_id,
+            "tables": dataset_tables,
+            "total_tables": len(dataset_tables),
+            "timestamp": datetime.now().isoformat()
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting dataset tables: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Internal server error while retrieving dataset tables: {str(e)}"
+        )
+
+
+# =============================================================================
 # Schema Management Endpoints
 # =============================================================================
 

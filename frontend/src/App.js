@@ -61,6 +61,9 @@ function App() {
   const [selectedSchema, setSelectedSchema] = useState(null);
   const [selectedEngine, setSelectedEngine] = useState('duckdb');
   
+  // Sidebar ref for schema refresh
+  const sidebarRef = React.useRef();
+  
   // Get current active tab
   const currentTab = tabs.find(tab => tab.id === activeTabId) || tabs[0];
   
@@ -122,6 +125,17 @@ function App() {
                 }
               : tab
           ));
+          
+          // Check if the query was a table creation query and refresh schemas
+          const sql = currentTab?.queryText?.toUpperCase();
+          if (sql && (sql.includes('CREATE TABLE') || sql.includes('CREATE VIEW') || sql.includes('DROP TABLE') || sql.includes('DROP VIEW'))) {
+            if (sidebarRef.current) {
+              // Add a small delay to ensure the table is fully created
+              setTimeout(() => {
+                sidebarRef.current.refreshSchemas();
+              }, 1000);
+            }
+          }
           
           // Update job history
           setJobHistory(prev => [jobData, ...prev.filter(j => j.job_id !== jobData.job_id)]);
@@ -424,13 +438,20 @@ function App() {
   }, []);
 
   const handleSchemaUploaded = useCallback((schema) => {
-    // Could refresh the schema browser or show a notification
+    // Refresh schema explorer after upload
     console.log('Schema uploaded:', schema);
+    if (sidebarRef.current) {
+      sidebarRef.current.refreshSchemas();
+    }
   }, []);
 
   const handleTableCreated = useCallback((tableInfo) => {
     console.log('Table created:', tableInfo);
     setShowTableCreation(false);
+    // Refresh schema explorer after table creation
+    if (sidebarRef.current) {
+      sidebarRef.current.refreshSchemas();
+    }
   }, []);
 
   const handleExecuteSQL = useCallback((sql, engine) => {
@@ -506,6 +527,7 @@ function App() {
       <div className="main-content">
         {!sidebarCollapsed && (
           <Sidebar 
+            ref={sidebarRef}
             jobHistory={jobHistory}
             onLoadQuery={loadSampleQuery}
             systemStatus={systemStatus}

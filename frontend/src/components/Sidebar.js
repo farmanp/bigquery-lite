@@ -1,10 +1,21 @@
-import React, { useState } from 'react';
+import React, { useState, forwardRef, useImperativeHandle } from 'react';
 import SchemaBrowser from './SchemaBrowser';
 import SchemaUpload from './SchemaUpload';
+import SchemaExplorer from './SchemaExplorer';
 
-const Sidebar = ({ jobHistory, onLoadQuery, systemStatus, apiBaseUrl, onCreateTable, onViewSQL, onSchemaUploaded, isCollapsed, onToggleCollapse }) => {
+const Sidebar = forwardRef(({ jobHistory, onLoadQuery, systemStatus, apiBaseUrl, onCreateTable, onViewSQL, onSchemaUploaded, isCollapsed, onToggleCollapse }, ref) => {
   const [activeSection, setActiveSection] = useState('explorer');
   const [searchQuery, setSearchQuery] = useState('');
+  const schemaExplorerRef = React.useRef();
+
+  // Expose refresh method to parent
+  useImperativeHandle(ref, () => ({
+    refreshSchemas: () => {
+      if (schemaExplorerRef.current) {
+        schemaExplorerRef.current.refreshSchemas();
+      }
+    }
+  }), []);
 
   const sampleQueries = [
     {
@@ -70,20 +81,6 @@ ORDER BY trip_count DESC;`,
     }
   ];
 
-  const datasets = [
-    {
-      name: 'nyc_taxi',
-      type: 'parquet',
-      description: 'NYC Yellow Taxi trips (Jan 2023)',
-      icon: 'local_taxi'
-    },
-    {
-      name: 'sample_data',
-      type: 'table',
-      description: 'Generated sample dataset',
-      icon: 'table_chart'
-    }
-  ];
 
   const getJobStatusIcon = (status) => {
     switch (status) {
@@ -174,60 +171,11 @@ ORDER BY trip_count DESC;`,
       {/* Explorer Section */}
       {activeSection === 'explorer' && (
         <div className="sidebar-content">
-          {/* Project Section */}
-          <div className="explorer-section">
-            <div className="explorer-item">
-              <div className="explorer-item-header">
-                <span className="material-icons expand-icon">expand_more</span>
-                <span className="material-icons item-icon">cloud</span>
-                <span className="item-text">bigquery-lite-project</span>
-              </div>
-            </div>
-            
-            {/* Datasets */}
-            <div className="explorer-subsection">
-              {datasets.map((dataset) => (
-                <div key={dataset.name} className="explorer-item nested">
-                  <div className="explorer-item-header">
-                    <span className="material-icons expand-icon">expand_more</span>
-                    <span className="material-icons item-icon">{dataset.icon}</span>
-                    <span className="item-text">{dataset.name}</span>
-                    <button className="item-action">
-                      <span className="material-icons">more_vert</span>
-                    </button>
-                  </div>
-                  <div className="item-description">{dataset.description}</div>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* System Status */}
-          {systemStatus && (
-            <div className="explorer-section">
-              <div className="status-section">
-                <h4>System Status</h4>
-                <div className="status-grid">
-                  <div className="status-item">
-                    <span className="status-label">Slots</span>
-                    <span className="status-value">{systemStatus.available_slots}/{systemStatus.total_slots}</span>
-                  </div>
-                  <div className="status-item">
-                    <span className="status-label">Queued</span>
-                    <span className="status-value">{systemStatus.queued_jobs}</span>
-                  </div>
-                  <div className="status-item">
-                    <span className="status-label">Running</span>
-                    <span className="status-value">{systemStatus.running_jobs}</span>
-                  </div>
-                  <div className="status-item">
-                    <span className="status-label">Completed</span>
-                    <span className="status-value">{systemStatus.completed_jobs}</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
+          <SchemaExplorer 
+            ref={schemaExplorerRef}
+            apiBaseUrl={apiBaseUrl}
+            systemStatus={systemStatus}
+          />
         </div>
       )}
 
@@ -359,6 +307,8 @@ ORDER BY trip_count DESC;`,
       )}
     </div>
   );
-};
+});
+
+Sidebar.displayName = 'Sidebar';
 
 export default Sidebar;
