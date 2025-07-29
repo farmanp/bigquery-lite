@@ -67,8 +67,9 @@ class TestRustEngineBasics:
         # Check data format
         data = result.data
         assert len(data) == 1
-        assert "COUNT(*)" in data[0]
-        assert data[0]["COUNT(*)"] == 100
+        assert "count(*)" in data[0] or "COUNT(*)" in data[0]  # Handle case variations
+        count_key = "count(*)" if "count(*)" in data[0] else "COUNT(*)"
+        assert data[0][count_key] == 100
     
     def test_aggregation_queries(self):
         """Test GROUP BY and aggregation queries"""

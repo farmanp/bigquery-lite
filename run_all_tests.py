@@ -70,9 +70,20 @@ def run_command(cmd, cwd=None, description=""):
         
     except subprocess.CalledProcessError as e:
         elapsed = time.time() - start_time
-        print_error(f"Failed after {elapsed:.2f}s")
-        print(f"{Colors.FAIL}Error output:{Colors.ENDC}")
-        print(e.stderr)
+        print_error(f"Failed after {elapsed:.2f}s (exit code: {e.returncode})")
+        
+        # Log both stdout and stderr for better debugging
+        if e.stdout and e.stdout.strip():
+            print(f"{Colors.OKCYAN}Standard Output:{Colors.ENDC}")
+            print(e.stdout)
+        
+        if e.stderr and e.stderr.strip():
+            print(f"{Colors.FAIL}Error Output:{Colors.ENDC}")
+            print(e.stderr)
+        
+        if not e.stdout.strip() and not e.stderr.strip():
+            print_warning("No output captured from failed command")
+        
         return False, e.stderr
     except FileNotFoundError:
         print_error(f"Command not found: {cmd[0]}")

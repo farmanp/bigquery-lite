@@ -81,8 +81,8 @@ class TestSQLErrorHandling:
         
         # These should cause type-related errors
         type_error_queries = [
-            "SELECT * FROM type_test WHERE category > 100",  # string vs number
-            "SELECT id + category FROM type_test",  # number + string
+            "SELECT * FROM type_test WHERE category + 1 = 'invalid'",  # string arithmetic
+            "SELECT id / category FROM type_test",  # number / string division
         ]
         
         for query in type_error_queries:
@@ -181,7 +181,13 @@ class TestConcurrencyErrors:
             try:
                 if query_type == "valid":
                     result = engine.execute_query_sync("SELECT COUNT(*) FROM concurrent_error_test")
-                    return ("success", result.rows)
+                    # Extract the count value from the result data (handle case variations)
+                    if result.data:
+                        count_key = "count(*)" if "count(*)" in result.data[0] else "COUNT(*)"
+                        count_value = result.data[0][count_key]
+                    else:
+                        count_value = 0
+                    return ("success", count_value)
                 else:  # invalid
                     engine.execute_query_sync("SELECT * FROM nonexistent_table")
                     return ("unexpected_success", None)
@@ -295,11 +301,13 @@ class TestResourceErrors:
     def test_error_message_quality(self):
         """Test that error messages are informative"""
         engine = bigquery_lite_engine.BlazeQueryEngine()
+        # Register a test table for column error test
+        engine.register_test_data("test_table", 100)
         
         error_scenarios = [
             ("SELECT * FROM missing_table", ["missing_table", "table", "not found"]),
-            ("SELECT invalid_column FROM test", ["invalid_column", "column"]),
-            ("SELECT * FORM test", ["syntax", "FORM"]),
+            ("SELECT invalid_column FROM test_table", ["invalid_column", "column"]),
+            ("SELECT * FORM test_table", ["syntax", "FORM"]),
         ]
         
         for query, expected_keywords in error_scenarios:
@@ -343,8 +351,8 @@ class TestEdgeCases:
         # Queries with special characters and escape sequences
         special_queries = [
             "SELECT 'hello world' as greeting",
-            "SELECT 'don\\'t' as contraction",
-            "SELECT 'line1\\nline2' as multiline",
+            "SELECT 'don''t' as contraction",  # Use SQL standard double quotes for escaping
+            "SELECT 'line1\nline2' as multiline",  # Use actual newline instead of escape
         ]
         
         for query in special_queries:

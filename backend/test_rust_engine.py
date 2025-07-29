@@ -179,7 +179,7 @@ def main():
         # Memory test for large dataset
         if data_size == 1_000_000 and rust_results:
             print(f"\n🧠 Memory Test (1M rows):")
-            memory_query = "SELECT category, COUNT(*), SUM(value), AVG(value) FROM test_data GROUP BY category"
+            memory_query = "SELECT category, COUNT(*), SUM(value), AVG(value) FROM memory_test GROUP BY category"
             
             if RUST_ENGINE_AVAILABLE:
                 engine = bigquery_lite_engine.BlazeQueryEngine()
