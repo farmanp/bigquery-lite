@@ -1,13 +1,24 @@
 //! Python FFI bindings for BlazeQueryEngine
 
 use std::collections::HashMap;
-use std::sync::Arc;
+use std::sync::{Arc, OnceLock};
 
 use pyo3::prelude::*;
 use pyo3::types::{PyDict, PyList};
+use tokio::runtime::Runtime;
 
 use crate::engine::{BlazeQueryEngine, QueryResult, EngineStats, EngineConfig};
 use crate::error::{BlazeError, BlazeResult, IntoPyResult};
+
+/// Global shared Tokio runtime for all Python bindings
+static GLOBAL_RUNTIME: OnceLock<Runtime> = OnceLock::new();
+
+/// Get or initialize the global Tokio runtime
+fn get_runtime() -> &'static Runtime {
+    GLOBAL_RUNTIME.get_or_init(|| {
+        Runtime::new().expect("Failed to create Tokio runtime")
+    })
+}
 
 /// Python wrapper for BlazeQueryEngine
 #[pyclass(name = "BlazeQueryEngine")]
@@ -51,8 +62,8 @@ impl PyBlazeQueryEngine {
     /// Create a new BlazeQueryEngine instance
     #[new]
     fn new() -> PyResult<Self> {
-        // Use sync runtime for simplicity in constructor
-        let rt = tokio::runtime::Runtime::new()?;
+        // Use shared global runtime
+        let rt = get_runtime();
         let engine = rt.block_on(async {
             BlazeQueryEngine::new().await.map_err(|e| PyErr::from(e))
         })?;
@@ -64,31 +75,31 @@ impl PyBlazeQueryEngine {
 
     /// Execute a SQL query synchronously (simplified version)
     fn execute_query_sync(&self, sql: String) -> PyResult<PyQueryResult> {
-        let rt = tokio::runtime::Runtime::new()?;
+        let rt = get_runtime();
         let engine = self.engine.clone();
         
         let result = rt.block_on(async move {
             engine.execute_query(&sql).await.map_err(|e| PyErr::from(e))
         })?;
         
-        // Convert result.data into a Python-compatible object
-        let gil = Python::acquire_gil();
-        let py = gil.python();
-        let data = result.data.to_object(py);
+        // Convert to JSON string for simplicity
+        let data_json = serde_json::to_string(&result.data).map_err(|e| {
+            PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(format!("JSON serialization error: {}", e))
+        })?;
         
         Ok(PyQueryResult {
             rows: result.rows,
             execution_time_ms: result.execution_time_ms,
             memory_used_bytes: result.memory_used_bytes,
             engine: result.engine,
-            data,
+            data_json,
             query_plan: result.query_plan,
         })
     }
 
     /// Get engine statistics synchronously
     fn get_stats_sync(&self) -> PyResult<PyEngineStats> {
-        let rt = tokio::runtime::Runtime::new()?;
+        let rt = get_runtime();
         let engine = self.engine.clone();
         
         let stats = rt.block_on(async move {
@@ -105,7 +116,7 @@ impl PyBlazeQueryEngine {
 
     /// List available tables synchronously
     fn list_tables_sync(&self) -> PyResult<Vec<String>> {
-        let rt = tokio::runtime::Runtime::new()?;
+        let rt = get_runtime();
         let engine = self.engine.clone();
         
         let tables = rt.block_on(async move {
@@ -117,7 +128,7 @@ impl PyBlazeQueryEngine {
 
     /// Validate SQL query syntax synchronously
     fn validate_query_sync(&self, sql: String) -> PyResult<bool> {
-        let rt = tokio::runtime::Runtime::new()?;
+        let rt = get_runtime();
         let engine = self.engine.clone();
         
         let is_valid = rt.block_on(async move {
@@ -129,7 +140,7 @@ impl PyBlazeQueryEngine {
 
     /// Register test data for benchmarking
     fn register_test_data(&self, table_name: String, rows: usize) -> PyResult<()> {
-        let rt = tokio::runtime::Runtime::new()?;
+        let rt = get_runtime();
         let engine = self.engine.clone();
         
         rt.block_on(async move {
