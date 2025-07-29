@@ -20,7 +20,7 @@ arrow-flight = "54.0"
 arrow-schema = "54.0"
 
 # Async runtime
-tokio = { version = "1.40", features = ["full"] }
+tokio = { version = "1.40", features = ["rt-multi-thread", "macros", "sync"] }
 tokio-util = "0.7"
 
 # Python FFI bindings
