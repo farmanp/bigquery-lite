@@ -50,3 +50,24 @@ logs/
 .env
 .env.local
 .env.*.local
+
+# Rust
+target/
+Cargo.lock
+**/*.rs.bk
+*.pdb
+
+# Rust build artifacts
+bigquery-lite-engine/target/
+bigquery-lite-engine/Cargo.lock
+
+# Python wheels and builds
+*.whl
+*.egg-info/
+build/
+dist/
+
+# Coverage
+.coverage
+*.coverage
+htmlcov/
