@@ -141,10 +141,12 @@ impl BlazeQueryEngine {
         let logical_plan = ctx.sql(sql).await?;
         
         // Get query plan for debugging (optional)
-        let query_plan = if log::log_enabled!(log::Level::Debug) {
-            Some(format!("{}", logical_plan.logical_plan().display_indent_schema()))
-        } else {
-            None
+        let query_plan = || {
+            if log::log_enabled!(log::Level::Debug) {
+                Some(format!("{}", logical_plan.logical_plan().display_indent_schema()))
+            } else {
+                None
+            }
         };
 
         // Execute the query
