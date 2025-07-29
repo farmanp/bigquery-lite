@@ -71,17 +71,17 @@ impl PyBlazeQueryEngine {
             engine.execute_query(&sql).await.map_err(|e| PyErr::from(e))
         })?;
         
-        // Convert to JSON string for simplicity
-        let data_json = serde_json::to_string(&result.data).map_err(|e| {
-            PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(format!("JSON serialization error: {}", e))
-        })?;
+        // Convert result.data into a Python-compatible object
+        let gil = Python::acquire_gil();
+        let py = gil.python();
+        let data = result.data.to_object(py);
         
         Ok(PyQueryResult {
             rows: result.rows,
             execution_time_ms: result.execution_time_ms,
             memory_used_bytes: result.memory_used_bytes,
             engine: result.engine,
-            data_json,
+            data,
             query_plan: result.query_plan,
         })
     }
