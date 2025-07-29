@@ -32,8 +32,17 @@ def test_rust_engine():
     try:
         engine = bigquery_lite_engine.BlazeQueryEngine()
         print("✅ Engine creation: SUCCESS")
+    except ImportError as e:
+        print("❌ Engine creation: FAILED - Missing dependencies. Ensure the Rust engine is installed and accessible.")
+        print(f"   Details: {e}")
+        return False
+    except AttributeError as e:
+        print("❌ Engine creation: FAILED - Incorrect module or attribute. Verify the engine's API and version.")
+        print(f"   Details: {e}")
+        return False
     except Exception as e:
-        print(f"❌ Engine creation: FAILED - {e}")
+        print("❌ Engine creation: FAILED - An unexpected error occurred.")
+        print(f"   Details: {e}")
         return False
     
     # 2. Test Data Registration
