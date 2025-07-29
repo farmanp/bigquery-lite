@@ -136,32 +136,33 @@ pub struct QueryAnalyzer;
 impl QueryAnalyzer {
     /// Estimate query complexity based on SQL text
     pub fn estimate_complexity(sql: &str) -> QueryComplexity {
-        let sql_upper = sql.to_uppercase();
+        let cleaned_sql = Self::remove_comments_and_strings(sql);
+        let sql_upper = cleaned_sql.to_uppercase();
         let mut complexity = QueryComplexity::Simple;
         
-        // Check for complex operations
-        if sql_upper.contains("JOIN") {
+        // Check for complex operations using word boundaries
+        if Self::contains_sql_keyword(&sql_upper, "JOIN") {
             complexity = QueryComplexity::Medium;
         }
         
-        if sql_upper.contains("GROUP BY") || sql_upper.contains("ORDER BY") {
+        if Self::contains_sql_keyword(&sql_upper, "GROUP BY") || Self::contains_sql_keyword(&sql_upper, "ORDER BY") {
             complexity = std::cmp::max(complexity, QueryComplexity::Medium);
         }
         
-        if sql_upper.contains("WINDOW") || sql_upper.contains("OVER") {
+        if Self::contains_sql_keyword(&sql_upper, "WINDOW") || Self::contains_sql_keyword(&sql_upper, "OVER") {
             complexity = QueryComplexity::Complex;
         }
         
-        // Count subqueries
-        let subquery_count = sql.matches('(').count();
+        // Count actual subqueries by looking for SELECT within parentheses
+        let subquery_count = Self::count_subqueries(&cleaned_sql);
         if subquery_count > 2 {
             complexity = QueryComplexity::Complex;
         }
         
-        // Check for multiple aggregations
+        // Check for multiple aggregations using word boundaries
         let agg_functions = ["COUNT", "SUM", "AVG", "MIN", "MAX"];
         let agg_count = agg_functions.iter()
-            .map(|func| sql_upper.matches(func).count())
+            .map(|func| Self::count_sql_function(&sql_upper, func))
             .sum::<usize>();
         
         if agg_count > 3 {
@@ -169,6 +170,126 @@ impl QueryAnalyzer {
         }
         
         complexity
+    }
+    
+    /// Remove SQL comments and string literals to avoid false positives
+    fn remove_comments_and_strings(sql: &str) -> String {
+        let mut result = String::new();
+        let mut chars = sql.chars().peekable();
+        let mut in_single_quote = false;
+        let mut in_double_quote = false;
+        
+        while let Some(ch) = chars.next() {
+            match ch {
+                '\'' if !in_double_quote => {
+                    in_single_quote = !in_single_quote;
+                    result.push(' '); // Replace string content with space
+                }
+                '"' if !in_single_quote => {
+                    in_double_quote = !in_double_quote;
+                    result.push(' '); // Replace string content with space
+                }
+                '-' if !in_single_quote && !in_double_quote => {
+                    if chars.peek() == Some(&'-') {
+                        // Skip line comment
+                        chars.next(); // consume second '-'
+                        while let Some(ch) = chars.next() {
+                            if ch == '\n' {
+                                result.push('\n');
+                                break;
+                            }
+                        }
+                    } else {
+                        result.push(ch);
+                    }
+                }
+                '/' if !in_single_quote && !in_double_quote => {
+                    if chars.peek() == Some(&'*') {
+                        // Skip block comment
+                        chars.next(); // consume '*'
+                        let mut found_end = false;
+                        while let Some(ch) = chars.next() {
+                            if ch == '*' && chars.peek() == Some(&'/') {
+                                chars.next(); // consume '/'
+                                found_end = true;
+                                break;
+                            }
+                        }
+                        if found_end {
+                            result.push(' ');
+                        }
+                    } else {
+                        result.push(ch);
+                    }
+                }
+                _ if in_single_quote || in_double_quote => {
+                    result.push(' '); // Replace string content with space
+                }
+                _ => {
+                    result.push(ch);
+                }
+            }
+        }
+        
+        result
+    }
+    
+    /// Check if SQL contains a keyword with proper word boundaries
+    fn contains_sql_keyword(sql: &str, keyword: &str) -> bool {
+        let pattern = format!(r"\b{}\b", regex::escape(keyword));
+        regex::Regex::new(&pattern)
+            .map(|re| re.is_match(sql))
+            .unwrap_or(false)
+    }
+    
+    /// Count SQL function calls with proper word boundaries
+    fn count_sql_function(sql: &str, function_name: &str) -> usize {
+        let pattern = format!(r"\b{}\s*\(", regex::escape(function_name));
+        regex::Regex::new(&pattern)
+            .map(|re| re.find_iter(sql).count())
+            .unwrap_or(0)
+    }
+    
+    /// Count actual subqueries by looking for SELECT within parentheses
+    fn count_subqueries(sql: &str) -> usize {
+        let mut count = 0;
+        let mut paren_depth = 0;
+        let mut in_subquery = false;
+        let sql_upper = sql.to_uppercase();
+        let mut i = 0;
+        let chars: Vec<char> = sql_upper.chars().collect();
+        
+        while i < chars.len() {
+            match chars[i] {
+                '(' => {
+                    paren_depth += 1;
+                    in_subquery = false;
+                }
+                ')' => {
+                    paren_depth -= 1;
+                    in_subquery = false;
+                }
+                'S' if paren_depth > 0 && !in_subquery => {
+                    // Check if this starts "SELECT"
+                    if i + 6 <= chars.len() {
+                        let word: String = chars[i..i+6].iter().collect();
+                        if word == "SELECT" {
+                            // Check if it's a word boundary before and after
+                            let before_ok = i == 0 || !chars[i-1].is_alphanumeric();
+                            let after_ok = i + 6 >= chars.len() || !chars[i+6].is_alphanumeric();
+                            if before_ok && after_ok {
+                                count += 1;
+                                in_subquery = true;
+                            }
+                        }
+                    }
+                }
+                _ => {}
+            }
+            i += 1;
+        }
+        
+        count
     }
     
     /// Estimate memory requirements in bytes
@@ -250,6 +371,130 @@ mod tests {
             QueryAnalyzer::estimate_complexity("SELECT ROW_NUMBER() OVER (ORDER BY id) FROM table"),
             QueryComplexity::Complex
         );
+    }
+    
+    #[test]
+    fn test_query_complexity_false_positives() {
+        // Test that keywords in comments don't affect complexity
+        assert_eq!(
+            QueryAnalyzer::estimate_complexity("SELECT * FROM table -- This has JOIN in comment"),
+            QueryComplexity::Simple
+        );
+        
+        assert_eq!(
+            QueryAnalyzer::estimate_complexity("SELECT * FROM table /* Contains GROUP BY in block comment */"),
+            QueryComplexity::Simple
+        );
+        
+        // Test that keywords in string literals don't affect complexity
+        assert_eq!(
+            QueryAnalyzer::estimate_complexity("SELECT 'This has JOIN keyword' FROM table"),
+            QueryComplexity::Simple
+        );
+        
+        assert_eq!(
+            QueryAnalyzer::estimate_complexity("SELECT \"Contains GROUP BY\" FROM table"),
+            QueryComplexity::Simple
+        );
+        
+        // Test actual JOIN vs false positives
+        assert_eq!(
+            QueryAnalyzer::estimate_complexity("SELECT * FROM table1 JOIN table2 ON table1.id = table2.id"),
+            QueryComplexity::Medium
+        );
+        
+        assert_eq!(
+            QueryAnalyzer::estimate_complexity("SELECT 'JOINING' FROM table"),
+            QueryComplexity::Simple
+        );
+        
+        // Test subquery counting accuracy
+        assert_eq!(
+            QueryAnalyzer::estimate_complexity("SELECT * FROM (SELECT * FROM table1) t1"),
+            QueryComplexity::Simple // Only one subquery
+        );
+        
+        assert_eq!(
+            QueryAnalyzer::estimate_complexity("SELECT * FROM table WHERE col IN (1, 2, 3)"),
+            QueryComplexity::Simple // Parentheses without SELECT
+        );
+        
+        // Test function counting accuracy
+        assert_eq!(
+            QueryAnalyzer::estimate_complexity("SELECT COUNT(*) FROM table"),
+            QueryComplexity::Simple // Only one aggregation
+        );
+        
+        assert_eq!(
+            QueryAnalyzer::estimate_complexity("SELECT 'COUNT is important' FROM table"),
+            QueryComplexity::Simple // COUNT in string literal
+        );
+    }
+    
+    #[test]
+    fn test_remove_comments_and_strings() {
+        // Test line comments
+        let sql = "SELECT * FROM table -- This is a comment with JOIN";
+        let cleaned = QueryAnalyzer::remove_comments_and_strings(sql);
+        assert!(!cleaned.contains("JOIN"));
+        assert!(cleaned.contains("SELECT"));
+        
+        // Test block comments
+        let sql = "SELECT * /* comment with GROUP BY */ FROM table";
+        let cleaned = QueryAnalyzer::remove_comments_and_strings(sql);
+        assert!(!cleaned.contains("GROUP BY"));
+        assert!(cleaned.contains("SELECT"));
+        
+        // Test string literals
+        let sql = "SELECT 'text with JOIN keyword' FROM table";
+        let cleaned = QueryAnalyzer::remove_comments_and_strings(sql);
+        assert!(!cleaned.contains("JOIN"));
+        assert!(cleaned.contains("SELECT"));
+        
+        // Test mixed quotes
+        let sql = r#"SELECT 'single quote' AND "double quote with GROUP BY" FROM table"#;
+        let cleaned = QueryAnalyzer::remove_comments_and_strings(sql);
+        assert!(!cleaned.contains("GROUP BY"));
+        assert!(cleaned.contains("SELECT"));
+    }
+    
+    #[test]
+    fn test_sql_keyword_detection() {
+        // Test proper word boundaries
+        assert!(QueryAnalyzer::contains_sql_keyword("SELECT * FROM table JOIN other", "JOIN"));
+        assert!(!QueryAnalyzer::contains_sql_keyword("SELECT * FROM tableJOINother", "JOIN"));
+        assert!(!QueryAnalyzer::contains_sql_keyword("SELECT * FROM JOINtable", "JOIN"));
+        assert!(!QueryAnalyzer::contains_sql_keyword("SELECT * FROM tableJOIN", "JOIN"));
+        
+        // Test multi-word keywords
+        assert!(QueryAnalyzer::contains_sql_keyword("SELECT * FROM table GROUP BY col", "GROUP BY"));
+        assert!(!QueryAnalyzer::contains_sql_keyword("SELECT * FROM tableGROUP BYcol", "GROUP BY"));
+    }
+    
+    #[test]
+    fn test_function_counting() {
+        // Test proper function detection
+        assert_eq!(QueryAnalyzer::count_sql_function("SELECT COUNT(*) FROM table", "COUNT"), 1);
+        assert_eq!(QueryAnalyzer::count_sql_function("SELECT COUNT(*), SUM(col) FROM table", "COUNT"), 1);
+        assert_eq!(QueryAnalyzer::count_sql_function("SELECT COUNT(*), SUM(col) FROM table", "SUM"), 1);
+        
+        // Test false positives
+        assert_eq!(QueryAnalyzer::count_sql_function("SELECT COUNTER FROM table", "COUNT"), 0);
+        assert_eq!(QueryAnalyzer::count_sql_function("SELECT COUNT_TOTAL FROM table", "COUNT"), 0);
+    }
+    
+    #[test]
+    fn test_subquery_counting() {
+        // Test actual subqueries
+        assert_eq!(QueryAnalyzer::count_subqueries("SELECT * FROM (SELECT * FROM table) t"), 1);
+        assert_eq!(QueryAnalyzer::count_subqueries("SELECT * FROM (SELECT * FROM (SELECT * FROM table) t1) t2"), 2);
+        
+        // Test non-subquery parentheses
+        assert_eq!(QueryAnalyzer::count_subqueries("SELECT * FROM table WHERE col IN (1, 2, 3)"), 0);
+        assert_eq!(QueryAnalyzer::count_subqueries("SELECT COUNT(*) FROM table"), 0);
+        
+        // Test mixed cases
+        assert_eq!(QueryAnalyzer::count_subqueries("SELECT * FROM (SELECT * FROM table) t WHERE col IN (1, 2, 3)"), 1);
     }
     
     #[test]

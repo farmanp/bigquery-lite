@@ -42,6 +42,7 @@ parking_lot = "0.12"
 num_cpus = "1.16"
 rand = "0.8"
 log = "0.4"
+regex = "1.10"
 
 # Optional: Object store support for cloud storage
 object_store = { version = "0.11", optional = true }
